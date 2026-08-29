@@ -16,7 +16,6 @@ CONFIG_TEMPLATE = """# Pallattu AI Assistant - local configuration
 OPENAI_API_KEY=
 
 # Local wake-word configuration. No vendor key is required.
-# Built-in model for first run; later point PALLATTU_WAKE_WORD_MODEL to a custom model.
 PALLATTU_WAKE_MODEL=hey jarvis
 PALLATTU_WAKE_WORD_MODEL=
 PALLATTU_WAKE_THRESHOLD=0.5
@@ -31,12 +30,19 @@ PALLATTU_VAD_THRESHOLD=0.5
 PALLATTU_WEBRTC_VAD_MODE=2
 
 # Audio playback follows the selected device/system volume.
-# Leave this at 1.0 normally; increase only if TTS is still too quiet.
 PALLATTU_OUTPUT_GAIN=1.0
 
 # Persistent local memory defaults to ~/.pallattu-ai-assistant/memory.sqlite3.
 # PALLATTU_MEMORY_PATH=/your/local/path/memory.sqlite3
 PALLATTU_MEMORY_MAX_MESSAGES=500
+
+# Physical movement is disabled until explicitly enabled and wired.
+PALLATTU_ROBOT_ACTIONS_ENABLED=false
+# PALLATTU_SERVO_PIN=18
+# PALLATTU_LEFT_MOTOR_FORWARD_PIN=17
+# PALLATTU_LEFT_MOTOR_BACKWARD_PIN=27
+# PALLATTU_RIGHT_MOTOR_FORWARD_PIN=22
+# PALLATTU_RIGHT_MOTOR_BACKWARD_PIN=23
 
 PALLATTU_LLM_MODEL=gpt-5.6-luna
 PALLATTU_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
