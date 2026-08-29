@@ -20,6 +20,10 @@ PALLATTU_WAKE_MODEL=hey jarvis
 PALLATTU_WAKE_WORD_MODEL=
 PALLATTU_WAKE_THRESHOLD=0.5
 
+# Default wake acknowledgement: instant beep, then local device voice.
+PALLATTU_WAKE_ACK=beep_and_voice
+PALLATTU_WAKE_ACK_TEXT=I'm listening.
+
 # Local voice activity detection: silero (default) or webrtc.
 PALLATTU_VAD_ENGINE=silero
 PALLATTU_VAD_THRESHOLD=0.5
