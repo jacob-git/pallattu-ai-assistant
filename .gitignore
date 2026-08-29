@@ -15,6 +15,7 @@ build/
 *.wav
 *.mp3
 *.ppn
+*.sqlite3
 models/
 data/
 recordings/
