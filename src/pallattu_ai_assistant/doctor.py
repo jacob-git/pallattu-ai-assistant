@@ -18,6 +18,11 @@ class DoctorCheck:
 
 def run_doctor(settings: Settings) -> list[DoctorCheck]:
     capabilities = discover_device_capabilities()
+    capability_detail = _capability_summary(
+        capabilities.is_raspberry_pi,
+        capabilities.has_temperature,
+        capabilities.has_gpio,
+    )
     checks: list[DoctorCheck] = [
         DoctorCheck("Platform", True, f"{platform.system()} {platform.machine()}"),
         DoctorCheck(
@@ -25,11 +30,7 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
             True,
             capabilities.model or "generic desktop/server",
         ),
-        DoctorCheck(
-            "Capabilities",
-            True,
-            _capability_summary(capabilities.is_raspberry_pi, capabilities.has_temperature, capabilities.has_gpio),
-        ),
+        DoctorCheck("Capabilities", True, capability_detail),
         DoctorCheck(
             "OpenAI key",
             bool(settings.openai_api_key),
