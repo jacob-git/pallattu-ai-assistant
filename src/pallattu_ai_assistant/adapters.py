@@ -9,14 +9,26 @@ from pathlib import Path
 import numpy as np
 import sounddevice as sd
 
+from pallattu_ai_assistant.audio_device import (
+    AudioOutputSelection,
+    prepare_audio_output,
+    resample_audio,
+    resolve_audio_output,
+)
 from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer, CapturedUtterance
 
 
 class SoundDeviceAudioOutputAdapter:
-    """Play through the selected system device; optional gain is applied before playback."""
+    """Play through a compatible output device; optional gain is applied before playback."""
 
-    def __init__(self, gain: float = 1.0) -> None:
+    def __init__(
+        self,
+        gain: float = 1.0,
+        selection: AudioOutputSelection | None = None,
+    ) -> None:
         self.gain = gain
+        self.selection = selection or resolve_audio_output()
+        prepare_audio_output(self.selection)
 
     def play(self, audio: AudioBuffer) -> None:
         if not audio.data:
@@ -33,7 +45,13 @@ class SoundDeviceAudioOutputAdapter:
                 amplified = samples.astype(np.float32) * self.gain
                 samples = np.clip(amplified, -32768, 32767).astype(np.int16)
 
-            sd.play(samples, samplerate=sample_rate)
+            playback_rate = self.selection.sample_rate
+            samples = resample_audio(samples, sample_rate, playback_rate)
+            sd.play(
+                samples,
+                samplerate=playback_rate,
+                device=self.selection.device_index,
+            )
             sd.wait()
 
 
