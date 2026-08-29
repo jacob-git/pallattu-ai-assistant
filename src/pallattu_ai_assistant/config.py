@@ -6,7 +6,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-
 DEFAULT_CONFIG_PATH = Path.home() / ".pallattu-ai-assistant" / ".env"
 DEFAULT_MEMORY_PATH = Path.home() / ".pallattu-ai-assistant" / "memory.sqlite3"
 
