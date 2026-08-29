@@ -18,7 +18,6 @@ from pysilero_vad import SileroVoiceActivityDetector
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.domain import AudioBuffer, CapturedUtterance
 
-
 SAMPLE_RATE = 16_000
 WAKE_FRAME_SAMPLES = 1_280  # 80 ms; recommended by openWakeWord for streaming.
 
