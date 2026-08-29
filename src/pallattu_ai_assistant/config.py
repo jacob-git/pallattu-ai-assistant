@@ -33,6 +33,7 @@ class Settings:
     tts_voice: str
     system_prompt: str
     memory_path: Path
+    memory_max_messages: int
     metrics_path: Path
 
 
@@ -41,7 +42,6 @@ def _optional_path(value: str | None) -> Path | None:
 
 
 def resolve_config_path() -> Path | None:
-    """Resolve config without depending on python-dotenv's caller-file search behavior."""
     explicit = os.getenv("PALLATTU_CONFIG")
     if explicit:
         return Path(explicit).expanduser()
@@ -94,6 +94,7 @@ def load_settings() -> Settings:
             ),
         ),
         memory_path=Path(os.getenv("PALLATTU_MEMORY_PATH", str(DEFAULT_MEMORY_PATH))).expanduser(),
+        memory_max_messages=int(os.getenv("PALLATTU_MEMORY_MAX_MESSAGES", "500")),
         metrics_path=Path(os.getenv("PALLATTU_METRICS_PATH", "data/usage.jsonl")),
     )
 
@@ -116,4 +117,6 @@ def validate_settings(settings: Settings) -> list[str]:
         errors.append("PALLATTU_WEBRTC_VAD_MODE must be 0, 1, 2, or 3")
     if not 0.0 < settings.output_gain <= 4.0:
         errors.append("PALLATTU_OUTPUT_GAIN must be greater than 0 and at most 4.0")
+    if settings.memory_max_messages < 20:
+        errors.append("PALLATTU_MEMORY_MAX_MESSAGES must be at least 20")
     return errors
