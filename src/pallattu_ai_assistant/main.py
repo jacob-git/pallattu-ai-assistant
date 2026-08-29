@@ -25,6 +25,10 @@ PALLATTU_VAD_ENGINE=silero
 PALLATTU_VAD_THRESHOLD=0.5
 PALLATTU_WEBRTC_VAD_MODE=2
 
+# Audio playback follows the selected device/system volume.
+# Leave this at 1.0 normally; increase only if TTS is still too quiet.
+PALLATTU_OUTPUT_GAIN=1.0
+
 PALLATTU_LLM_MODEL=gpt-5.6-luna
 PALLATTU_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 PALLATTU_TTS_MODEL=gpt-4o-mini-tts
