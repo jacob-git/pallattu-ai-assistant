@@ -96,7 +96,7 @@ def load_settings() -> Settings:
         llm_model=os.getenv("PALLATTU_LLM_MODEL", "gpt-5.6-luna"),
         transcription_model=os.getenv("PALLATTU_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"),
         tts_model=os.getenv("PALLATTU_TTS_MODEL", "gpt-4o-mini-tts"),
-        tts_voice=os.getenv("PALLATTU_TTS_VOICE", "coral"),
+        tts_voice=os.getenv("PALLATTU_TTS_VOICE", "alloy"),
         system_prompt=os.getenv(
             "PALLATTU_SYSTEM_PROMPT",
             (
