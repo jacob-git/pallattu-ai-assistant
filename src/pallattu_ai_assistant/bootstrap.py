@@ -11,7 +11,7 @@ def build_app(settings: Settings) -> AssistantApp:
     return AssistantApp(
         perception=OpenWakeWordPerceptionAdapter(settings),
         voice_ai=OpenAIVoiceAdapter(settings),
-        audio_output=SoundDeviceAudioOutputAdapter(),
+        audio_output=SoundDeviceAudioOutputAdapter(gain=settings.output_gain),
         metrics=JsonlMetricsAdapter(settings.metrics_path),
         follow_up_seconds=settings.follow_up_seconds,
     )
