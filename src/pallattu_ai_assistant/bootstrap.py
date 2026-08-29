@@ -6,6 +6,7 @@ from pallattu_ai_assistant.audio_runtime import OpenWakeWordPerceptionAdapter
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.openai_pipeline import OpenAIVoiceAdapter
 from pallattu_ai_assistant.tools import PortableToolRegistry
+from pallattu_ai_assistant.wake_ack import LocalWakeAcknowledgementAdapter
 
 
 def build_app(settings: Settings) -> AssistantApp:
@@ -16,4 +17,9 @@ def build_app(settings: Settings) -> AssistantApp:
         audio_output=SoundDeviceAudioOutputAdapter(gain=settings.output_gain),
         metrics=JsonlMetricsAdapter(settings.metrics_path),
         follow_up_seconds=settings.follow_up_seconds,
+        wake_acknowledgement=LocalWakeAcknowledgementAdapter(
+            mode=settings.wake_ack,
+            text=settings.wake_ack_text,
+            gain=settings.output_gain,
+        ),
     )
