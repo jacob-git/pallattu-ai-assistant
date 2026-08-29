@@ -15,7 +15,10 @@ from pallattu_ai_assistant.wake_ack import LocalWakeAcknowledgementAdapter
 
 
 def build_app(settings: Settings) -> AssistantApp:
-    memory = SQLiteMemoryAdapter(settings.memory_path)
+    memory = SQLiteMemoryAdapter(
+        settings.memory_path,
+        max_conversation_messages=settings.memory_max_messages,
+    )
     tools = CompositeToolRegistry(PortableToolRegistry(), MemoryToolAdapter(memory))
     return AssistantApp(
         perception=OpenWakeWordPerceptionAdapter(settings),
