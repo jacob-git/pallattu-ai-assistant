@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer, CapturedUtterance
+from pallattu_ai_assistant.domain import (
+    AssistantReply,
+    AudioBuffer,
+    CapturedUtterance,
+    ImageFrame,
+)
 
 
 class PerceptionPort(Protocol):
@@ -14,6 +19,14 @@ class PerceptionPort(Protocol):
 
 class VoiceAIPort(Protocol):
     def handle(self, audio: AudioBuffer) -> AssistantReply: ...
+
+
+class VisionPort(Protocol):
+    """Portable boundary for obtaining a still frame from an available camera."""
+
+    def available(self) -> bool: ...
+    def describe_source(self) -> str: ...
+    def capture(self) -> ImageFrame: ...
 
 
 class ToolPort(Protocol):
