@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 import io
 import math
+from pathlib import Path
 import struct
 import time
 import wave
@@ -59,21 +60,34 @@ class OpenWakeWordPerceptionAdapter:
 
     def _create_wake_model(self) -> Model:
         if self.settings.wake_word_model:
-            return Model(wakeword_models=[str(self.settings.wake_word_model)])
+            model_path = self.settings.wake_word_model
+            framework = "tflite" if model_path.suffix.lower() == ".tflite" else "onnx"
+            return Model(wakeword_models=[str(model_path)], inference_framework=framework)
 
-        paths = openwakeword.get_pretrained_model_paths()
-        if not paths:
-            openwakeword.utils.download_models()
-            paths = openwakeword.get_pretrained_model_paths()
-
-        normalized_target = _normalize(self.settings.wake_model)
-        matches = [path for path in paths if normalized_target in _normalize(str(path))]
-        if not matches:
-            available = ", ".join(sorted({_friendly_model_name(path) for path in paths}))
+        model_key = _model_key(self.settings.wake_model)
+        model_info = openwakeword.MODELS.get(model_key)
+        if model_info is None:
+            available = ", ".join(sorted(openwakeword.MODELS.keys()))
             raise RuntimeError(
-                f"Wake model '{self.settings.wake_model}' was not found. Available models: {available}"
+                f"Wake model '{self.settings.wake_model}' is not available. "
+                f"Choose one of: {available}"
             )
-        return Model(wakeword_models=[matches[0]])
+
+        model_path = Path(model_info["model_path"])
+        if not model_path.exists():
+            # openWakeWord exposes model paths even before the corresponding files
+            # have been downloaded. Download only the selected model and shared
+            # feature models on first use.
+            openwakeword.utils.download_models([model_path.stem])
+
+        if not model_path.exists():
+            raise RuntimeError(
+                f"openWakeWord model download completed but the model is still missing: {model_path}"
+            )
+
+        # TFLite/LiteRT is openWakeWord's efficient ARM64 path and avoids the
+        # currently reported ONNX score issue on Apple Silicon.
+        return Model(wakeword_models=[str(model_path)], inference_framework="tflite")
 
     def _resolve_target_model(self) -> str:
         names = list(self.model.models.keys())
@@ -176,6 +190,11 @@ def _normalize(value: str) -> str:
     return "".join(character for character in value.lower() if character.isalnum())
 
 
-def _friendly_model_name(path: str) -> str:
-    name = str(path).rsplit("/", 1)[-1].split(".", 1)[0]
-    return name.replace("_", " ")
+def _model_key(value: str) -> str:
+    normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "jarvis": "hey_jarvis",
+        "mycroft": "hey_mycroft",
+        "rhasspy": "hey_rhasspy",
+    }
+    return aliases.get(normalized, normalized)
