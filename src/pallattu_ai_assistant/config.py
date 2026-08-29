@@ -18,6 +18,8 @@ class Settings:
     wake_model: str
     wake_word_model: Path | None
     wake_threshold: float
+    wake_ack: str
+    wake_ack_text: str
     vad_engine: str
     vad_threshold: float
     webrtc_vad_mode: int
@@ -65,6 +67,8 @@ def load_settings() -> Settings:
         wake_model=os.getenv("PALLATTU_WAKE_MODEL", "hey jarvis"),
         wake_word_model=_optional_path(os.getenv("PALLATTU_WAKE_WORD_MODEL")),
         wake_threshold=float(os.getenv("PALLATTU_WAKE_THRESHOLD", "0.5")),
+        wake_ack=os.getenv("PALLATTU_WAKE_ACK", "beep_and_voice").lower(),
+        wake_ack_text=os.getenv("PALLATTU_WAKE_ACK_TEXT", "I'm listening."),
         vad_engine=os.getenv("PALLATTU_VAD_ENGINE", "silero").lower(),
         vad_threshold=float(os.getenv("PALLATTU_VAD_THRESHOLD", "0.5")),
         webrtc_vad_mode=int(os.getenv("PALLATTU_WEBRTC_VAD_MODE", "2")),
@@ -98,6 +102,8 @@ def validate_settings(settings: Settings) -> list[str]:
         errors.append(f"Wake-word model not found: {settings.wake_word_model}")
     if not 0.0 <= settings.wake_threshold <= 1.0:
         errors.append("PALLATTU_WAKE_THRESHOLD must be between 0 and 1")
+    if settings.wake_ack not in {"beep_and_voice", "beep", "voice", "none"}:
+        errors.append("PALLATTU_WAKE_ACK must be beep_and_voice, beep, voice, or none")
     if settings.vad_engine not in {"silero", "webrtc"}:
         errors.append("PALLATTU_VAD_ENGINE must be 'silero' or 'webrtc'")
     if not 0.0 <= settings.vad_threshold <= 1.0:
