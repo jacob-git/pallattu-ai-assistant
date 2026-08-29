@@ -2,7 +2,7 @@
 
 Portable, cost-efficient, local-first AI voice assistant runtime.
 
-The application is intentionally **not coupled to Raspberry Pi OS, Linux, systemd, ALSA, or any specific AI provider**. Raspberry Pi 5 is one deployment target, not part of the application architecture.
+The application is intentionally **not coupled to Raspberry Pi OS, Linux, systemd, ALSA, or any specific AI provider**. macOS is the first validated desktop target; Raspberry Pi 5 is a deployment target, not part of the application architecture.
 
 ## Goal
 
@@ -12,10 +12,43 @@ Download the distribution, install it, configure your local AI keys, and run:
 pip install pallattu_ai_assistant-*.whl
 pallattu-ai-assistant init
 # edit .env and add your keys
+pallattu-ai-assistant doctor
 pallattu-ai-assistant run
 ```
 
 No source-code changes should be required for a normal installation.
+
+## macOS first run
+
+Requires Python 3.11+.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install pallattu_ai_assistant-*.whl
+pallattu-ai-assistant init
+```
+
+Add your local credentials to `.env`:
+
+```text
+OPENAI_API_KEY=...
+PICOVOICE_ACCESS_KEY=...
+```
+
+Then validate the machine:
+
+```bash
+pallattu-ai-assistant doctor
+```
+
+`doctor` checks the local keys, wake-word configuration, default microphone, and default speaker. If macOS blocks microphone access, allow the terminal application under **System Settings > Privacy & Security > Microphone**.
+
+Start the assistant:
+
+```bash
+pallattu-ai-assistant run
+```
 
 ## Architecture
 
@@ -92,6 +125,7 @@ python -m venv .venv
 source .venv/bin/activate   # use the equivalent command on your platform
 pip install pallattu_ai_assistant-*.whl
 pallattu-ai-assistant init
+pallattu-ai-assistant doctor
 ```
 
 `init` creates a local `.env` file. Add:
@@ -126,11 +160,16 @@ src/pallattu_ai_assistant/
 ├── audio_runtime.py    # Picovoice perception adapter
 ├── openai_pipeline.py  # OpenAI voice adapter
 ├── adapters.py         # playback + metrics adapters
+├── doctor.py           # portable environment/audio diagnostics
 ├── config.py           # environment/local configuration
 └── main.py             # portable CLI
 ```
 
 Operating-system startup mechanisms belong outside the application. A systemd unit, launchd configuration, Windows service wrapper, Docker image, or process supervisor may be supplied as optional deployment examples, but the core never depends on them.
+
+## CI and distribution validation
+
+CI runs on both Ubuntu and macOS. Each job lints, tests, builds the distribution, installs the wheel into a clean virtual environment, and validates the installed CLI. This catches packaging issues that editable-source tests can miss.
 
 ## Development
 
