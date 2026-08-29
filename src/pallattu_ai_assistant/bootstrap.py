@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pallattu_ai_assistant.adapters import JsonlMetricsAdapter, SoundDeviceAudioOutputAdapter
 from pallattu_ai_assistant.app import AssistantApp
+from pallattu_ai_assistant.audio_device import prepare_audio_output, resolve_audio_output
 from pallattu_ai_assistant.audio_runtime import OpenWakeWordPerceptionAdapter
 from pallattu_ai_assistant.camera import build_vision_adapter
 from pallattu_ai_assistant.config import Settings
@@ -30,6 +31,8 @@ def build_app(settings: Settings) -> AssistantApp:
     actuator = build_actuator_adapter(settings)
     controller = SafeRobotController(actuator)
     gpio_adapter = RaspberryPiGpioZeroActuatorAdapter(settings)
+    audio_output = resolve_audio_output()
+    prepare_audio_output(audio_output)
     tools = CompositeToolRegistry(
         PortableToolRegistry(),
         MemoryToolAdapter(memory),
@@ -44,12 +47,16 @@ def build_app(settings: Settings) -> AssistantApp:
     return AssistantApp(
         perception=OpenWakeWordPerceptionAdapter(settings),
         voice_ai=OpenAIVoiceAdapter(settings, tools, memory),
-        audio_output=SoundDeviceAudioOutputAdapter(gain=settings.output_gain),
+        audio_output=SoundDeviceAudioOutputAdapter(
+            gain=settings.output_gain,
+            selection=audio_output,
+        ),
         metrics=JsonlMetricsAdapter(settings.metrics_path),
         follow_up_seconds=settings.follow_up_seconds,
         wake_acknowledgement=LocalWakeAcknowledgementAdapter(
             mode=settings.wake_ack,
             text=settings.wake_ack_text,
             gain=settings.output_gain,
+            selection=audio_output,
         ),
     )
