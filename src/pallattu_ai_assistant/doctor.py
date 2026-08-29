@@ -5,8 +5,10 @@ from dataclasses import dataclass
 
 import sounddevice as sd
 
+from pallattu_ai_assistant.camera import build_vision_adapter
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.device import discover_device_capabilities
+from pallattu_ai_assistant.robot_gpio import build_actuator_adapter
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,14 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
         capabilities.has_temperature,
         capabilities.has_gpio,
     )
+    camera = build_vision_adapter()
+    actuator = build_actuator_adapter(settings)
+    robot_ok = not settings.robot_actions_enabled or actuator.available()
+    robot_detail = (
+        actuator.describe()
+        if settings.robot_actions_enabled
+        else "disabled by configuration (safe default)"
+    )
     checks: list[DoctorCheck] = [
         DoctorCheck("Platform", True, f"{platform.system()} {platform.machine()}"),
         DoctorCheck(
@@ -31,6 +41,12 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
             capabilities.model or "generic desktop/server",
         ),
         DoctorCheck("Capabilities", True, capability_detail),
+        DoctorCheck(
+            "Camera",
+            True,
+            f"{'available' if camera.available() else 'not available'}: {camera.describe_source()}",
+        ),
+        DoctorCheck("Robot actions", robot_ok, robot_detail),
         DoctorCheck(
             "OpenAI key",
             bool(settings.openai_api_key),
