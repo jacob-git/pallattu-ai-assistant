@@ -34,11 +34,27 @@ class Settings:
     system_prompt: str
     memory_path: Path
     memory_max_messages: int
+    robot_actions_enabled: bool
+    servo_pin: int | None
+    left_motor_forward_pin: int | None
+    left_motor_backward_pin: int | None
+    right_motor_forward_pin: int | None
+    right_motor_backward_pin: int | None
     metrics_path: Path
 
 
 def _optional_path(value: str | None) -> Path | None:
     return Path(value).expanduser() if value else None
+
+
+def _optional_int(value: str | None) -> int | None:
+    return int(value) if value not in {None, ""} else None
+
+
+def _as_bool(value: str | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def resolve_config_path() -> Path | None:
@@ -90,11 +106,19 @@ def load_settings() -> Settings:
                 "status of the device running the assistant. Never claim live information is unavailable when "
                 "an available tool can answer it. Use remember_fact when the user explicitly asks you to "
                 "remember a stable fact or preference. Use forget_memory when the user asks you to forget one. "
-                "Never store credentials or secrets in long-term memory."
+                "Use camera tools only when the user asks you to look or identify something in the current scene. "
+                "Use robot movement tools only for an explicit physical movement request from the user in the "
+                "current turn. Never improvise movement. Never store credentials or secrets in long-term memory."
             ),
         ),
         memory_path=Path(os.getenv("PALLATTU_MEMORY_PATH", str(DEFAULT_MEMORY_PATH))).expanduser(),
         memory_max_messages=int(os.getenv("PALLATTU_MEMORY_MAX_MESSAGES", "500")),
+        robot_actions_enabled=_as_bool(os.getenv("PALLATTU_ROBOT_ACTIONS_ENABLED"), False),
+        servo_pin=_optional_int(os.getenv("PALLATTU_SERVO_PIN")),
+        left_motor_forward_pin=_optional_int(os.getenv("PALLATTU_LEFT_MOTOR_FORWARD_PIN")),
+        left_motor_backward_pin=_optional_int(os.getenv("PALLATTU_LEFT_MOTOR_BACKWARD_PIN")),
+        right_motor_forward_pin=_optional_int(os.getenv("PALLATTU_RIGHT_MOTOR_FORWARD_PIN")),
+        right_motor_backward_pin=_optional_int(os.getenv("PALLATTU_RIGHT_MOTOR_BACKWARD_PIN")),
         metrics_path=Path(os.getenv("PALLATTU_METRICS_PATH", "data/usage.jsonl")),
     )
 
@@ -119,4 +143,13 @@ def validate_settings(settings: Settings) -> list[str]:
         errors.append("PALLATTU_OUTPUT_GAIN must be greater than 0 and at most 4.0")
     if settings.memory_max_messages < 20:
         errors.append("PALLATTU_MEMORY_MAX_MESSAGES must be at least 20")
+    configured_pins = [
+        settings.servo_pin,
+        settings.left_motor_forward_pin,
+        settings.left_motor_backward_pin,
+        settings.right_motor_forward_pin,
+        settings.right_motor_backward_pin,
+    ]
+    if any(pin is not None and pin < 0 for pin in configured_pins):
+        errors.append("Robot GPIO pin numbers must be non-negative")
     return errors
