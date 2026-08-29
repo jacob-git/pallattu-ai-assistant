@@ -11,12 +11,21 @@ from urllib.request import Request, urlopen
 
 import psutil
 
+from pallattu_ai_assistant.device import (
+    DeviceCapabilities,
+    discover_device_capabilities,
+    read_temperature_celsius,
+)
+
 
 class PortableToolRegistry:
-    """Safe, portable capabilities available on desktop and Raspberry Pi."""
+    """Safe capabilities; device-specific tools are exposed only when supported."""
+
+    def __init__(self, capabilities: DeviceCapabilities | None = None) -> None:
+        self.capabilities = capabilities or discover_device_capabilities()
 
     def definitions(self) -> list[dict[str, Any]]:
-        return [
+        definitions = [
             {
                 "type": "function",
                 "name": "current_time",
@@ -68,7 +77,57 @@ class PortableToolRegistry:
                 },
                 "strict": True,
             },
+            {
+                "type": "function",
+                "name": "device_capabilities",
+                "description": (
+                    "List safe hardware capabilities detected on the device running the assistant."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         ]
+
+        if self.capabilities.is_raspberry_pi and self.capabilities.has_temperature:
+            definitions.append(
+                {
+                    "type": "function",
+                    "name": "device_temperature",
+                    "description": "Read the Raspberry Pi processor temperature in Celsius.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": False,
+                    },
+                    "strict": True,
+                }
+            )
+
+        if self.capabilities.is_raspberry_pi and self.capabilities.has_gpio:
+            definitions.append(
+                {
+                    "type": "function",
+                    "name": "gpio_status",
+                    "description": (
+                        "Read-only Raspberry Pi GPIO capability status. This never changes pin state."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                        "additionalProperties": False,
+                    },
+                    "strict": True,
+                }
+            )
+
+        return definitions
 
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -78,7 +137,13 @@ class PortableToolRegistry:
                 return self._weather(str(arguments.get("location", "")).strip())
             if name == "system_status":
                 return self._system_status()
-            return {"ok": False, "error": f"Unknown tool: {name}"}
+            if name == "device_capabilities":
+                return self._device_capabilities()
+            if name == "device_temperature" and self.capabilities.has_temperature:
+                return self._device_temperature()
+            if name == "gpio_status" and self.capabilities.has_gpio:
+                return self._gpio_status()
+            return {"ok": False, "error": f"Unknown or unavailable tool: {name}"}
         except (OSError, ValueError, TypeError, KeyError, psutil.Error) as exc:
             return {"ok": False, "error": f"{name} failed: {exc}"}
 
@@ -168,9 +233,48 @@ class PortableToolRegistry:
             result["power_plugged"] = battery.power_plugged
         return result
 
+    def _device_capabilities(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "platform": self.capabilities.platform_name,
+            "architecture": self.capabilities.architecture,
+            "model": self.capabilities.model,
+            "raspberry_pi": self.capabilities.is_raspberry_pi,
+            "temperature_available": self.capabilities.has_temperature,
+            "gpio_available": self.capabilities.has_gpio,
+            "gpio_chip_count": len(self.capabilities.gpio_chips),
+        }
+
+    def _device_temperature(self) -> dict[str, Any]:
+        if self.capabilities.thermal_zone is None:
+            return {"ok": False, "error": "Temperature capability is unavailable."}
+        temperature_c = read_temperature_celsius(self.capabilities.thermal_zone)
+        return {
+            "ok": True,
+            "temperature_c": temperature_c,
+            "temperature_f": round((temperature_c * 9 / 5) + 32, 1),
+        }
+
+    def _gpio_status(self) -> dict[str, Any]:
+        chips = [
+            {
+                "path": str(path),
+                "readable": os.access(path, os.R_OK),
+                "writable": os.access(path, os.W_OK),
+            }
+            for path in self.capabilities.gpio_chips
+        ]
+        return {
+            "ok": True,
+            "mode": "read-only",
+            "gpio_chip_count": len(chips),
+            "gpio_chips": chips,
+            "note": "No pin values are changed by this tool.",
+        }
+
     @staticmethod
     def _get_json(url: str) -> dict[str, Any]:
-        request = Request(url, headers={"User-Agent": "Pallattu-AI-Assistant/0.4"})
+        request = Request(url, headers={"User-Agent": "Pallattu-AI-Assistant/0.5"})
         with urlopen(request, timeout=8) as response:
             return json.loads(response.read().decode("utf-8"))
 
