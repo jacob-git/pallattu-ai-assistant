@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import sounddevice as sd
 
 from pallattu_ai_assistant.config import Settings
+from pallattu_ai_assistant.device import discover_device_capabilities
 
 
 @dataclass(frozen=True)
@@ -16,8 +17,19 @@ class DoctorCheck:
 
 
 def run_doctor(settings: Settings) -> list[DoctorCheck]:
+    capabilities = discover_device_capabilities()
     checks: list[DoctorCheck] = [
         DoctorCheck("Platform", True, f"{platform.system()} {platform.machine()}"),
+        DoctorCheck(
+            "Device model",
+            True,
+            capabilities.model or "generic desktop/server",
+        ),
+        DoctorCheck(
+            "Capabilities",
+            True,
+            _capability_summary(capabilities.is_raspberry_pi, capabilities.has_temperature, capabilities.has_gpio),
+        ),
         DoctorCheck(
             "OpenAI key",
             bool(settings.openai_api_key),
@@ -58,6 +70,17 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
         checks.append(DoctorCheck("Audio devices", False, str(exc)))
 
     return checks
+
+
+def _capability_summary(is_pi: bool, has_temperature: bool, has_gpio: bool) -> str:
+    capabilities = ["portable tools"]
+    if is_pi:
+        capabilities.append("Raspberry Pi")
+    if has_temperature:
+        capabilities.append("temperature")
+    if has_gpio:
+        capabilities.append("GPIO read-only")
+    return ", ".join(capabilities)
 
 
 def _device_name(devices, index: int | None) -> str:
