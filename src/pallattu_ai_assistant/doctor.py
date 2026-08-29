@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import platform
+from dataclasses import dataclass
 
 import sounddevice as sd
 
@@ -54,7 +54,7 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
                 _device_name(devices, default_output),
             )
         )
-    except Exception as exc:
+    except (sd.PortAudioError, OSError, TypeError, ValueError) as exc:
         checks.append(DoctorCheck("Audio devices", False, str(exc)))
 
     return checks
@@ -65,5 +65,5 @@ def _device_name(devices, index: int | None) -> str:
         return "no default device"
     try:
         return str(devices[index]["name"])
-    except Exception:
+    except (IndexError, KeyError, TypeError):
         return f"device {index}"
