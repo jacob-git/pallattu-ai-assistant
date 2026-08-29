@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import os
+from pathlib import Path
 import platform
 from typing import Any
 from urllib.parse import urlencode
@@ -18,10 +19,14 @@ class PortableToolRegistry:
             {
                 "type": "function",
                 "name": "current_time",
-                "description": "Get the current local date, time, and timezone of the device running the assistant.",
+                "description": (
+                    "Get the current local date, time, and timezone of the device running "
+                    "the assistant."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {},
+                    "required": [],
                     "additionalProperties": False,
                 },
                 "strict": True,
@@ -29,13 +34,18 @@ class PortableToolRegistry:
             {
                 "type": "function",
                 "name": "weather",
-                "description": "Get current weather for a city or named location. Use this for current weather questions.",
+                "description": (
+                    "Get current weather for a city or named location. Use this for current "
+                    "weather questions."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "location": {
                             "type": "string",
-                            "description": "City and region, for example Sunnyvale, Texas or Dallas, TX",
+                            "description": (
+                                "City and region, for example Sunnyvale, Texas or Dallas, TX"
+                            ),
                         }
                     },
                     "required": ["location"],
@@ -46,10 +56,13 @@ class PortableToolRegistry:
             {
                 "type": "function",
                 "name": "system_status",
-                "description": "Get safe health/status information about the computer running the assistant.",
+                "description": (
+                    "Get safe health and status information about the computer running the assistant."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {},
+                    "required": [],
                     "additionalProperties": False,
                 },
                 "strict": True,
@@ -71,11 +84,16 @@ class PortableToolRegistry:
     @staticmethod
     def _current_time() -> dict[str, Any]:
         now = datetime.now().astimezone()
+        display_time = (
+            now.strftime("%-I:%M %p")
+            if os.name != "nt"
+            else now.strftime("%I:%M %p").lstrip("0")
+        )
         return {
             "ok": True,
             "iso": now.isoformat(timespec="seconds"),
             "date": now.strftime("%A, %B %d, %Y"),
-            "time": now.strftime("%-I:%M %p") if os.name != "nt" else now.strftime("%I:%M %p").lstrip("0"),
+            "time": display_time,
             "timezone": now.tzname() or str(now.tzinfo),
         }
 
@@ -135,7 +153,8 @@ class PortableToolRegistry:
     @staticmethod
     def _system_status() -> dict[str, Any]:
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage("/")
+        root = Path.home().anchor or "/"
+        disk = psutil.disk_usage(root)
         battery = psutil.sensors_battery()
         result: dict[str, Any] = {
             "ok": True,
