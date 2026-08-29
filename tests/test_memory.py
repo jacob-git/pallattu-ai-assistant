@@ -1,4 +1,8 @@
-from pallattu_ai_assistant.memory import CompositeToolRegistry, MemoryToolAdapter, SQLiteMemoryAdapter
+from pallattu_ai_assistant.memory import (
+    CompositeToolRegistry,
+    MemoryToolAdapter,
+    SQLiteMemoryAdapter,
+)
 
 
 class FakeTools:
