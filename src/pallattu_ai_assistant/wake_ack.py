@@ -8,16 +8,25 @@ import subprocess
 import numpy as np
 import sounddevice as sd
 
+from pallattu_ai_assistant.audio_device import AudioOutputSelection, resolve_audio_output
+
 logger = logging.getLogger(__name__)
 
 
 class LocalWakeAcknowledgementAdapter:
     """Instant local beep plus optional device-native speech acknowledgement."""
 
-    def __init__(self, mode: str, text: str, gain: float = 1.0) -> None:
+    def __init__(
+        self,
+        mode: str,
+        text: str,
+        gain: float = 1.0,
+        selection: AudioOutputSelection | None = None,
+    ) -> None:
         self.mode = mode
         self.text = text
         self.gain = gain
+        self.selection = selection or resolve_audio_output()
 
     def acknowledge(self) -> None:
         if self.mode == "none":
@@ -28,13 +37,17 @@ class LocalWakeAcknowledgementAdapter:
             self._speak_local(self.text)
 
     def _beep(self) -> None:
-        sample_rate = 24_000
+        sample_rate = self.selection.sample_rate
         duration_seconds = 0.09
         frequency_hz = 880.0
         samples = np.arange(int(sample_rate * duration_seconds), dtype=np.float32)
         wave = np.sin(2.0 * np.pi * frequency_hz * samples / sample_rate)
         amplitude = min(0.35 * self.gain, 0.9)
-        sd.play((wave * amplitude).astype(np.float32), samplerate=sample_rate)
+        sd.play(
+            (wave * amplitude).astype(np.float32),
+            samplerate=sample_rate,
+            device=self.selection.device_index,
+        )
         sd.wait()
 
     @staticmethod
