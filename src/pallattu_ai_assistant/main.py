@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from pallattu_ai_assistant import __version__
 from pallattu_ai_assistant.bootstrap import build_app
