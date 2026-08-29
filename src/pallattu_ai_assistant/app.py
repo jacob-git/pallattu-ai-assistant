@@ -3,13 +3,19 @@ from __future__ import annotations
 import logging
 import time
 
-from pallattu_ai_assistant.ports import AudioOutputPort, MetricsPort, PerceptionPort, VoiceAIPort
+from pallattu_ai_assistant.ports import (
+    AudioOutputPort,
+    MetricsPort,
+    PerceptionPort,
+    VoiceAIPort,
+    WakeAcknowledgementPort,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class AssistantApp:
-    """Portable application core: wake -> listen -> think -> speak -> follow-up -> sleep."""
+    """Portable application core: wake -> acknowledge -> listen -> think -> speak."""
 
     def __init__(
         self,
@@ -18,12 +24,14 @@ class AssistantApp:
         audio_output: AudioOutputPort,
         metrics: MetricsPort,
         follow_up_seconds: float,
+        wake_acknowledgement: WakeAcknowledgementPort | None = None,
     ) -> None:
         self.perception = perception
         self.voice_ai = voice_ai
         self.audio_output = audio_output
         self.metrics = metrics
         self.follow_up_seconds = follow_up_seconds
+        self.wake_acknowledgement = wake_acknowledgement
 
     def run_forever(self) -> None:
         self.perception.start()
@@ -32,6 +40,8 @@ class AssistantApp:
             while True:
                 self.perception.wait_for_wake_word()
                 logger.info("Wake word detected")
+                if self.wake_acknowledgement is not None:
+                    self.wake_acknowledgement.acknowledge()
                 self._run_conversation()
         except KeyboardInterrupt:
             logger.info("Stopping assistant")
