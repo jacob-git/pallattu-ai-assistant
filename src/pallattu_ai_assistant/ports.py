@@ -23,6 +23,10 @@ class ToolPort(Protocol):
     def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
 
+class WakeAcknowledgementPort(Protocol):
+    def acknowledge(self) -> None: ...
+
+
 class AudioOutputPort(Protocol):
     def play(self, audio: AudioBuffer) -> None: ...
 
