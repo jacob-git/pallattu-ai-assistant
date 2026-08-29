@@ -6,6 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from pallattu_ai_assistant.wake_word import resolve_custom_wake_model
+
 DEFAULT_CONFIG_PATH = Path.home() / ".pallattu-ai-assistant" / ".env"
 DEFAULT_MEMORY_PATH = Path.home() / ".pallattu-ai-assistant" / "memory.sqlite3"
 
@@ -77,12 +79,14 @@ def load_settings() -> Settings:
     if config_path is not None:
         load_dotenv(dotenv_path=config_path)
 
+    explicit_wake_model = _optional_path(os.getenv("PALLATTU_WAKE_WORD_MODEL"))
+
     return Settings(
         log_level=os.getenv("PALLATTU_LOG_LEVEL", "INFO"),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         audio_input_device_index=int(os.getenv("PALLATTU_AUDIO_INPUT_DEVICE_INDEX", "-1")),
         wake_model=os.getenv("PALLATTU_WAKE_MODEL", "hey jarvis"),
-        wake_word_model=_optional_path(os.getenv("PALLATTU_WAKE_WORD_MODEL")),
+        wake_word_model=resolve_custom_wake_model(explicit_wake_model),
         wake_threshold=float(os.getenv("PALLATTU_WAKE_THRESHOLD", "0.5")),
         wake_ack=os.getenv("PALLATTU_WAKE_ACK", "beep_and_voice").lower(),
         wake_ack_text=os.getenv("PALLATTU_WAKE_ACK_TEXT", "I'm listening."),
