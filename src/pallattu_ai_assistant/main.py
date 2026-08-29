@@ -9,6 +9,7 @@ from pallattu_ai_assistant import __version__
 from pallattu_ai_assistant.bootstrap import build_app
 from pallattu_ai_assistant.config import load_settings, validate_settings
 from pallattu_ai_assistant.doctor import run_doctor
+from pallattu_ai_assistant.memory import SQLiteMemoryAdapter
 
 CONFIG_TEMPLATE = """# Pallattu AI Assistant - local configuration
 # Keep this file private. Never commit it.
@@ -35,6 +36,7 @@ PALLATTU_OUTPUT_GAIN=1.0
 
 # Persistent local memory defaults to ~/.pallattu-ai-assistant/memory.sqlite3.
 # PALLATTU_MEMORY_PATH=/your/local/path/memory.sqlite3
+PALLATTU_MEMORY_MAX_MESSAGES=500
 
 PALLATTU_LLM_MODEL=gpt-5.6-luna
 PALLATTU_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
@@ -86,6 +88,37 @@ def _run() -> None:
     build_app(settings).run_forever()
 
 
+def _memory(args: argparse.Namespace) -> None:
+    settings = load_settings()
+    memory = SQLiteMemoryAdapter(
+        settings.memory_path,
+        max_conversation_messages=settings.memory_max_messages,
+    )
+
+    if args.memory_command == "list":
+        memories = memory.list_memories(limit=args.limit)
+        if not memories:
+            print("No long-term memories stored.")
+            return
+        for index, item in enumerate(memories, start=1):
+            print(f"{index}. {item}")
+    elif args.memory_command == "stats":
+        for key, value in memory.stats().items():
+            print(f"{key}: {value}")
+    elif args.memory_command == "forget":
+        result = memory.forget(args.query)
+        print(f"Deleted {result.get('deleted', 0)} matching memories.")
+    elif args.memory_command == "clear":
+        deleted = memory.clear_memories()
+        print(f"Deleted {deleted} long-term memories.")
+    elif args.memory_command == "clear-conversations":
+        deleted = memory.clear_conversations()
+        print(f"Deleted {deleted} conversation messages.")
+    elif args.memory_command == "prune":
+        deleted = memory.prune_conversations(args.keep)
+        print(f"Pruned {deleted} old conversation messages.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="pallattu-ai-assistant")
     parser.add_argument("--version", action="version", version=__version__)
@@ -94,6 +127,19 @@ def main() -> None:
     init_parser.add_argument("--path", type=Path, default=Path(".env"))
     subcommands.add_parser("doctor", help="check keys and local audio readiness")
     subcommands.add_parser("run", help="start the assistant")
+
+    memory_parser = subcommands.add_parser("memory", help="inspect and manage local memory")
+    memory_commands = memory_parser.add_subparsers(dest="memory_command", required=True)
+    memory_list = memory_commands.add_parser("list", help="list long-term memories")
+    memory_list.add_argument("--limit", type=int, default=20)
+    memory_commands.add_parser("stats", help="show memory database statistics")
+    memory_forget = memory_commands.add_parser("forget", help="forget matching long-term memories")
+    memory_forget.add_argument("query")
+    memory_commands.add_parser("clear", help="clear all long-term memories")
+    memory_commands.add_parser("clear-conversations", help="clear persisted conversation history")
+    memory_prune = memory_commands.add_parser("prune", help="prune old conversation messages")
+    memory_prune.add_argument("--keep", type=int, default=500)
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -102,6 +148,8 @@ def main() -> None:
         _doctor()
     elif args.command == "run":
         _run()
+    elif args.command == "memory":
+        _memory(args)
     else:
         parser.print_help()
 
