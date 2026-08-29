@@ -3,6 +3,7 @@ from __future__ import annotations
 from pallattu_ai_assistant.adapters import JsonlMetricsAdapter, SoundDeviceAudioOutputAdapter
 from pallattu_ai_assistant.app import AssistantApp
 from pallattu_ai_assistant.audio_runtime import OpenWakeWordPerceptionAdapter
+from pallattu_ai_assistant.camera import build_vision_adapter
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.memory import (
     CompositeToolRegistry,
@@ -11,6 +12,7 @@ from pallattu_ai_assistant.memory import (
 )
 from pallattu_ai_assistant.openai_pipeline import OpenAIVoiceAdapter
 from pallattu_ai_assistant.tools import PortableToolRegistry
+from pallattu_ai_assistant.vision_tools import OpenAIVisionAnalysisAdapter, VisionToolAdapter
 from pallattu_ai_assistant.wake_ack import LocalWakeAcknowledgementAdapter
 
 
@@ -19,7 +21,12 @@ def build_app(settings: Settings) -> AssistantApp:
         settings.memory_path,
         max_conversation_messages=settings.memory_max_messages,
     )
-    tools = CompositeToolRegistry(PortableToolRegistry(), MemoryToolAdapter(memory))
+    camera = build_vision_adapter()
+    tools = CompositeToolRegistry(
+        PortableToolRegistry(),
+        MemoryToolAdapter(memory),
+        VisionToolAdapter(camera, OpenAIVisionAnalysisAdapter(settings)),
+    )
     return AssistantApp(
         perception=OpenWakeWordPerceptionAdapter(settings),
         voice_ai=OpenAIVoiceAdapter(settings, tools, memory),
