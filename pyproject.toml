@@ -4,20 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pallattu-ai-assistant"
-version = "0.1.0"
-description = "Cost-efficient, local-first AI voice assistant and robotics platform for Raspberry Pi 5"
+version = "0.2.0"
+description = "Portable, cost-efficient, local-first AI voice assistant runtime"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "numpy>=2.0,<3.0",
   "openai>=1.100,<2.0",
   "python-dotenv>=1.0,<2.0",
   "pvcobra>=2.0,<3.0",
   "pvporcupine>=3.0,<4.0",
   "pvrecorder>=1.2,<2.0",
+  "sounddevice>=0.5,<1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "build>=1.2,<2",
   "pytest>=8,<9",
   "ruff>=0.12,<1",
 ]
