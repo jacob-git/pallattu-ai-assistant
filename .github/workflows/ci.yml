@@ -7,7 +7,10 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -25,3 +28,17 @@ jobs:
 
       - name: Test
         run: pytest
+
+      - name: Build distribution
+        run: |
+          pip install build
+          python -m build
+
+      - name: Verify wheel install
+        shell: bash
+        run: |
+          python -m venv /tmp/pallattu-wheel-test
+          source /tmp/pallattu-wheel-test/bin/activate
+          pip install dist/*.whl
+          pallattu-ai-assistant --version
+          pallattu-ai-assistant --help
