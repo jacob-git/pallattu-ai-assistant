@@ -29,6 +29,12 @@ class VisionPort(Protocol):
     def capture(self) -> ImageFrame: ...
 
 
+class VisionAnalysisPort(Protocol):
+    """Portable boundary for interpreting a captured frame."""
+
+    def analyze(self, frame: ImageFrame, prompt: str) -> str: ...
+
+
 class ToolPort(Protocol):
     """Application-facing capability boundary for safe local/external tools."""
 
