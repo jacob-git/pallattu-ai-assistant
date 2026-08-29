@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import io
+import json
 import time
 
 from openai import OpenAI
 
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer
+from pallattu_ai_assistant.ports import ToolPort
 
 
 class OpenAIVoiceAdapter:
-    """OpenAI STT -> reasoning -> TTS adapter. No OS or filesystem dependency."""
+    """OpenAI STT -> reasoning/tool use -> TTS adapter."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, tools: ToolPort) -> None:
         self.settings = settings
+        self.tools = tools
         self.client = OpenAI(api_key=settings.openai_api_key)
         self.history: list[dict[str, str]] = []
 
@@ -47,6 +50,7 @@ class OpenAIVoiceAdapter:
 
     def _respond(self, transcript: str) -> tuple[str, int, int, float]:
         started = time.monotonic()
+        tool_definitions = self.tools.definitions()
         response = self.client.responses.create(
             model=self.settings.llm_model,
             input=[
@@ -54,13 +58,52 @@ class OpenAIVoiceAdapter:
                 *self.history[-8:],
                 {"role": "user", "content": transcript},
             ],
+            tools=tool_definitions,
+            tool_choice="auto",
             reasoning={"effort": "none"},
             max_output_tokens=220,
         )
+
+        input_tokens, output_tokens = _usage(response)
+        tool_rounds = 0
+        while tool_rounds < 4:
+            calls = [item for item in response.output if getattr(item, "type", "") == "function_call"]
+            if not calls:
+                break
+
+            tool_rounds += 1
+            tool_outputs = []
+            for call in calls:
+                try:
+                    arguments = json.loads(call.arguments or "{}")
+                except json.JSONDecodeError:
+                    arguments = {}
+                result = self.tools.execute(call.name, arguments)
+                tool_outputs.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": call.call_id,
+                        "output": json.dumps(result),
+                    }
+                )
+
+            response = self.client.responses.create(
+                model=self.settings.llm_model,
+                previous_response_id=response.id,
+                input=tool_outputs,
+                tools=tool_definitions,
+                tool_choice="auto",
+                reasoning={"effort": "none"},
+                max_output_tokens=220,
+            )
+            turn_input, turn_output = _usage(response)
+            input_tokens += turn_input
+            output_tokens += turn_output
+
         text = response.output_text.strip()
-        usage = getattr(response, "usage", None)
-        input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
-        output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+        if not text:
+            text = "I couldn't complete that request."
+
         self.history.extend(
             [
                 {"role": "user", "content": transcript},
@@ -79,3 +122,11 @@ class OpenAIVoiceAdapter:
         )
         data = response.read()
         return AudioBuffer(data=data, sample_rate=24000), time.monotonic() - started
+
+
+def _usage(response) -> tuple[int, int]:
+    usage = getattr(response, "usage", None)
+    return (
+        int(getattr(usage, "input_tokens", 0) or 0),
+        int(getattr(usage, "output_tokens", 0) or 0),
+    )
