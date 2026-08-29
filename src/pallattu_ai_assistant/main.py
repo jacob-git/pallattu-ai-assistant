@@ -8,6 +8,7 @@ import sys
 from pallattu_ai_assistant import __version__
 from pallattu_ai_assistant.bootstrap import build_app
 from pallattu_ai_assistant.config import load_settings, validate_settings
+from pallattu_ai_assistant.doctor import run_doctor
 
 CONFIG_TEMPLATE = """# Pallattu AI Assistant - local configuration
 # Keep this file private. Never commit it.
@@ -34,7 +35,24 @@ def _init_config(path: Path) -> None:
     path.write_text(CONFIG_TEMPLATE, encoding="utf-8")
     print(f"Created {path}")
     print("Add your OPENAI_API_KEY and PICOVOICE_ACCESS_KEY, then run:")
+    print("  pallattu-ai-assistant doctor")
     print("  pallattu-ai-assistant run")
+
+
+def _doctor() -> None:
+    settings = load_settings()
+    checks = run_doctor(settings)
+    print(f"Pallattu AI Assistant v{__version__}")
+    print()
+    for check in checks:
+        mark = "✓" if check.ok else "✗"
+        print(f"{mark} {check.name:<18} {check.detail}")
+    if sys.platform == "darwin":
+        print()
+        print("macOS: if microphone access is blocked, allow your terminal app in")
+        print("System Settings > Privacy & Security > Microphone.")
+    if not all(check.ok for check in checks):
+        raise SystemExit(2)
 
 
 def _run() -> None:
@@ -58,11 +76,14 @@ def main() -> None:
     subcommands = parser.add_subparsers(dest="command")
     init_parser = subcommands.add_parser("init", help="create a local .env configuration")
     init_parser.add_argument("--path", type=Path, default=Path(".env"))
+    subcommands.add_parser("doctor", help="check keys and local audio readiness")
     subcommands.add_parser("run", help="start the assistant")
     args = parser.parse_args()
 
     if args.command == "init":
         _init_config(args.path)
+    elif args.command == "doctor":
+        _doctor()
     elif args.command == "run":
         _run()
     else:
