@@ -2,123 +2,195 @@
 
 A cost-efficient, local-first AI voice assistant and robotics platform for Raspberry Pi 5.
 
-The project starts as a reliable voice assistant and is designed to grow into a home robot with memory, vision, sensors, tools, and safe physical actions.
+The first real release is an always-on assistant: idle listening stays on the Pi, a wake phrase activates the interaction, local VAD captures only useful speech, and cloud AI is called only when there is something to answer.
 
-## Goals
-
-- Natural voice conversations on Raspberry Pi 5
-- Keep always-on processing local where practical
-- Send only useful speech/context to cloud AI services
-- Track latency and cloud cost from the beginning
-- Keep AI providers behind clean interfaces
-- Separate AI reasoning from hardware control and safety
-- Grow incrementally from voice chat to robotics
-
-## Architecture
+## v0.1 architecture
 
 ```text
-Microphone
-    |
-    v
-Local Audio Pipeline
-(VAD / wake word / recording)
-    |
-    v
-Speech-to-Text
-    |
-    v
-Conversation Orchestrator -----> Memory
-    |                    \
-    |                     ---> Tool Requests
-    v                              |
-Language Model                     v
-    |                       Robot Controller
-    |                       (safety boundary)
-    v                              |
-Text-to-Speech              GPIO / motors / sensors
-    |
-    v
-Speaker
+Microphone (always local)
+        |
+        v
+Porcupine wake-word detector
+        |
+        | wake phrase
+        v
+Cobra local VAD + utterance capture
+        |
+        | speech only
+        v
+GPT-4o mini Transcribe
+        |
+        v
+GPT-5.6 Luna
+        |
+        v
+GPT-4o mini TTS
+        |
+        v
+ALSA / speaker
+        |
+        v
+10-second local follow-up window
+        |
+        +-- speech --> another interaction
+        |
+        +-- timeout --> wake-word mode
 ```
 
-The core principle is **local first, cloud when valuable**. Wake-word detection, voice activity detection, device state, hardware control, and safety rules should remain local. Cloud services can initially provide high-quality speech recognition, reasoning, and speech synthesis.
+Idle room audio is not sent to OpenAI.
+
+## Current milestone: v0.1 Always-On Voice Assistant
+
+Implemented:
+
+- Always-on local wake-word detection with Porcupine
+- Local voice activity detection with Cobra
+- Speech/end-of-speech capture with a short pre-roll
+- OpenAI speech-to-text
+- Cost-sensitive GPT-5.6 Luna reasoning
+- OpenAI text-to-speech
+- Spoken playback through ALSA `aplay`
+- Multi-turn follow-up window without repeating the wake phrase
+- Automatic return to wake-word-only mode
+- JSONL latency/usage metrics per cloud interaction
+- Configuration validation
+- User-level systemd service template
+
+## Raspberry Pi setup
+
+Requires Raspberry Pi OS, Python 3.11+, a working microphone, speaker, and `alsa-utils`.
+
+```bash
+git clone git@github.com:jacob-git/pallattu-ai-assistant.git
+cd pallattu-ai-assistant
+
+sudo apt update
+sudo apt install -y python3-venv alsa-utils
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e ".[dev]"
+
+cp .env.example .env
+```
+
+Add these two secrets to `.env`:
+
+```text
+OPENAI_API_KEY=...
+PICOVOICE_ACCESS_KEY=...
+```
+
+Porcupine requires a Picovoice AccessKey. Wake-word and VAD inference run locally on the Pi.
+
+### Wake phrase
+
+The default bootstrap keyword is `porcupine`, because it is shipped with Porcupine and works without a custom model.
+
+For the intended wake phrase **Hey Pallattu**:
+
+1. Create the phrase in Picovoice Console for Raspberry Pi.
+2. Download the generated `.ppn` file to the Pi, for example `models/hey-pallattu.ppn`.
+3. Set this in `.env`:
+
+```text
+PALLATTU_WAKE_WORD_MODEL=/home/YOUR_USER/pallattu-ai-assistant/models/hey-pallattu.ppn
+```
+
+Do not commit the custom model or credentials to the public repository.
+
+## Run
+
+```bash
+source .venv/bin/activate
+pallattu-ai-assistant
+```
+
+Expected flow:
+
+```text
+say wake phrase
+-> speak request
+-> local silence detection ends recording
+-> transcription
+-> AI response
+-> spoken response
+-> follow-up listening
+-> timeout back to wake mode
+```
+
+## Run automatically
+
+Install the included service as a user service:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp deploy/pallattu-ai-assistant.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now pallattu-ai-assistant.service
+```
+
+To allow the user service to start after boot even before an interactive login:
+
+```bash
+sudo loginctl enable-linger "$USER"
+```
+
+Logs:
+
+```bash
+journalctl --user -u pallattu-ai-assistant -f
+```
+
+## Configuration
+
+See `.env.example`. Useful tuning values include:
+
+- `PALLATTU_AUDIO_INPUT_DEVICE_INDEX`
+- `PALLATTU_VAD_THRESHOLD`
+- `PALLATTU_END_SILENCE_SECONDS`
+- `PALLATTU_FOLLOW_UP_SECONDS`
+- `PALLATTU_MAX_UTTERANCE_SECONDS`
+- `PALLATTU_LLM_MODEL`
+- `PALLATTU_TTS_VOICE`
+
+Usage/latency records are appended to `data/usage.jsonl` by default.
+
+## Cost strategy
+
+The assistant intentionally does not maintain a cloud realtime audio connection while idle.
+
+- Wake-word detection: local
+- VAD: local
+- Silence/room audio: local only
+- STT: called once per actual utterance
+- Reasoning: defaults to the cost-sensitive GPT-5.6 Luna model
+- TTS: generated only for the final spoken response
+- Conversation history: bounded to the most recent turns
+
+This architecture can later switch an active conversation to a realtime model if measured latency justifies the additional cost.
 
 ## Roadmap
 
 | Version | Capability | Outcome |
 | --- | --- | --- |
-| v0.1 | Audio foundation | Record and play audio reliably on Pi 5 |
-| v0.2 | Push-to-talk AI | First end-to-end AI voice conversation |
-| v0.3 | Hands-free voice | Local VAD detects speech and silence |
-| v0.4 | Wake word | Local activation without idle API usage |
-| v0.5 | Conversation memory | Context-aware multi-turn conversations |
-| v0.6 | Tool execution | Safe AI-requested robot actions |
-| v0.7 | Sensors | Environmental awareness |
-| v0.8 | Vision | Camera perception and object/person detection |
-| v0.9 | Mobility | Motors, navigation, obstacle handling |
-| v1.0 | Integrated assistant | Voice + perception + safe physical action |
+| v0.1 | Always-on voice assistant | Wake, converse, follow up, sleep |
+| v0.2 | Tool router | Safe local actions and home/robot tools |
+| v0.3 | Durable memory | Useful preferences and summarized context |
+| v0.4 | Vision | Camera perception and person/object awareness |
+| v0.5 | Sensors | Environment awareness |
+| v0.6 | Mobility | Safe motor control and obstacle handling |
+| v1.0 | Integrated assistant | Voice + perception + tools + physical action |
 
-See [`docs/roadmap.md`](docs/roadmap.md) for milestones and acceptance criteria.
-
-## Project structure
-
-```text
-pallattu-ai-assistant/
-├── docs/
-│   ├── architecture.md
-│   └── roadmap.md
-├── src/pallattu_ai_assistant/
-│   ├── __init__.py
-│   ├── config.py
-│   └── main.py
-├── tests/
-├── .github/workflows/
-├── .env.example
-├── .gitignore
-└── pyproject.toml
-```
-
-Modules for audio, AI providers, conversation, robotics, vision, observability, and cost tracking will be introduced only when their milestone begins. This keeps the codebase honest and avoids empty abstractions.
-
-## Development setup
-
-Requires Python 3.11+.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-pallattu-ai-assistant
-```
-
-Run checks:
+## Development
 
 ```bash
 ruff check .
 pytest
 ```
 
-## Configuration
-
-Copy the example configuration:
-
-```bash
-cp .env.example .env
-```
-
 Never commit `.env`, API keys, Wi-Fi credentials, recordings, personal conversations, or home-network configuration.
-
-## Current milestone: v0.1 Audio Foundation
-
-The first implementation milestone is deliberately simple:
-
-1. Detect the USB microphone and speaker on Raspberry Pi 5.
-2. Record a short WAV file from Python.
-3. Play it back through the configured speaker.
-4. Make device selection configurable.
-5. Add hardware diagnostics and tests that can run directly on the Pi.
-
-AI integration comes in v0.2 after the audio path is reliable.
 
 ## License
 
