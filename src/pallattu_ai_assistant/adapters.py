@@ -13,6 +13,11 @@ from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer, CapturedUt
 
 
 class SoundDeviceAudioOutputAdapter:
+    """Play through the selected system device; optional gain is applied before playback."""
+
+    def __init__(self, gain: float = 1.0) -> None:
+        self.gain = gain
+
     def play(self, audio: AudioBuffer) -> None:
         if not audio.data:
             return
@@ -23,6 +28,11 @@ class SoundDeviceAudioOutputAdapter:
             samples = np.frombuffer(frames, dtype=np.int16)
             if channels > 1:
                 samples = samples.reshape(-1, channels)
+
+            if self.gain != 1.0:
+                amplified = samples.astype(np.float32) * self.gain
+                samples = np.clip(amplified, -32768, 32767).astype(np.int16)
+
             sd.play(samples, samplerate=sample_rate)
             sd.wait()
 
