@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+import json
 import os
-from pathlib import Path
 import platform
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -78,7 +79,7 @@ class PortableToolRegistry:
             if name == "system_status":
                 return self._system_status()
             return {"ok": False, "error": f"Unknown tool: {name}"}
-        except Exception as exc:
+        except (OSError, ValueError, TypeError, KeyError, psutil.Error) as exc:
             return {"ok": False, "error": f"{name} failed: {exc}"}
 
     @staticmethod
@@ -113,15 +114,9 @@ class PortableToolRegistry:
         params = {
             "latitude": place["latitude"],
             "longitude": place["longitude"],
-            "current": ",".join(
-                [
-                    "temperature_2m",
-                    "apparent_temperature",
-                    "relative_humidity_2m",
-                    "precipitation",
-                    "weather_code",
-                    "wind_speed_10m",
-                ]
+            "current": (
+                "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,"
+                "weather_code,wind_speed_10m"
             ),
             "temperature_unit": "fahrenheit",
             "wind_speed_unit": "mph",
@@ -175,8 +170,6 @@ class PortableToolRegistry:
 
     @staticmethod
     def _get_json(url: str) -> dict[str, Any]:
-        import json
-
         request = Request(url, headers={"User-Agent": "Pallattu-AI-Assistant/0.4"})
         with urlopen(request, timeout=8) as response:
             return json.loads(response.read().decode("utf-8"))
