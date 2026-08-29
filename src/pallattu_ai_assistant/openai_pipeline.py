@@ -8,17 +8,17 @@ from openai import OpenAI
 
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer
-from pallattu_ai_assistant.ports import ToolPort
+from pallattu_ai_assistant.ports import MemoryPort, ToolPort
 
 
 class OpenAIVoiceAdapter:
-    """OpenAI STT -> reasoning/tool use -> TTS adapter."""
+    """OpenAI STT -> reasoning/tool use -> TTS adapter with persistent memory."""
 
-    def __init__(self, settings: Settings, tools: ToolPort) -> None:
+    def __init__(self, settings: Settings, tools: ToolPort, memory: MemoryPort) -> None:
         self.settings = settings
         self.tools = tools
+        self.memory = memory
         self.client = OpenAI(api_key=settings.openai_api_key)
-        self.history: list[dict[str, str]] = []
 
     def handle(self, audio: AudioBuffer) -> AssistantReply:
         transcript, transcription_seconds = self._transcribe(audio)
@@ -51,13 +51,30 @@ class OpenAIVoiceAdapter:
     def _respond(self, transcript: str) -> tuple[str, int, int, float]:
         started = time.monotonic()
         tool_definitions = self.tools.definitions()
+        recent_history = self.memory.recent_messages(limit=8)
+        relevant_memories = self.memory.search(transcript, limit=5)
+
+        input_messages: list[dict[str, str]] = [
+            {"role": "system", "content": self.settings.system_prompt}
+        ]
+        if relevant_memories:
+            memory_context = "\n".join(f"- {memory}" for memory in relevant_memories)
+            input_messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "Relevant long-term memories from this user's local memory store:\n"
+                        f"{memory_context}\n"
+                        "Use them only when they help answer the current request."
+                    ),
+                }
+            )
+        input_messages.extend(recent_history)
+        input_messages.append({"role": "user", "content": transcript})
+
         response = self.client.responses.create(
             model=self.settings.llm_model,
-            input=[
-                {"role": "system", "content": self.settings.system_prompt},
-                *self.history[-8:],
-                {"role": "user", "content": transcript},
-            ],
+            input=input_messages,
             tools=tool_definitions,
             tool_choice="auto",
             reasoning={"effort": "none"},
@@ -104,12 +121,8 @@ class OpenAIVoiceAdapter:
         if not text:
             text = "I couldn't complete that request."
 
-        self.history.extend(
-            [
-                {"role": "user", "content": transcript},
-                {"role": "assistant", "content": text},
-            ]
-        )
+        self.memory.append_message("user", transcript)
+        self.memory.append_message("assistant", text)
         return text, input_tokens, output_tokens, time.monotonic() - started
 
     def _synthesize(self, text: str) -> tuple[AudioBuffer, float]:
