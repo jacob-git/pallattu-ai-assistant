@@ -35,6 +35,31 @@ def test_conversation_history_survives_new_adapter_instance(tmp_path):
     ]
 
 
+def test_conversation_retention_prunes_old_rows(tmp_path):
+    memory = SQLiteMemoryAdapter(tmp_path / "memory.sqlite3", max_conversation_messages=20)
+    for index in range(30):
+        memory.append_message("user", f"message {index}")
+
+    messages = memory.recent_messages(limit=100)
+
+    assert len(messages) == 20
+    assert messages[0]["content"] == "message 10"
+    assert messages[-1]["content"] == "message 29"
+
+
+def test_memory_stats_and_clear_operations(tmp_path):
+    memory = SQLiteMemoryAdapter(tmp_path / "memory.sqlite3")
+    memory.append_message("user", "hello")
+    memory.remember("I prefer concise answers")
+
+    stats = memory.stats()
+
+    assert stats["conversation_messages"] == 1
+    assert stats["long_term_memories"] == 1
+    assert memory.clear_conversations() == 1
+    assert memory.clear_memories() == 1
+
+
 def test_long_term_memory_can_be_saved_and_retrieved(tmp_path):
     memory = SQLiteMemoryAdapter(tmp_path / "memory.sqlite3")
 
