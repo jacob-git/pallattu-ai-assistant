@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
 import io
 import math
 import struct
@@ -13,19 +12,13 @@ import pvporcupine
 from pvrecorder import PvRecorder
 
 from pallattu_ai_assistant.config import Settings
+from pallattu_ai_assistant.domain import AudioBuffer, CapturedUtterance
 
 
-@dataclass(frozen=True)
-class CapturedUtterance:
-    wav_bytes: bytes
-    duration_seconds: float
-
-
-class LocalAudioRuntime:
-    """Always-on local audio loop using Porcupine wake word + Cobra VAD."""
+class PicovoicePerceptionAdapter:
+    """Portable wake-word + VAD adapter backed by Picovoice."""
 
     def __init__(self, settings: Settings) -> None:
-        self.settings = settings
         if settings.wake_word_model:
             self.porcupine = pvporcupine.create(
                 access_key=settings.picovoice_access_key,
@@ -43,6 +36,7 @@ class LocalAudioRuntime:
         if self.porcupine.frame_length != self.cobra.frame_length:
             raise RuntimeError("Wake-word and VAD engines use different frame lengths")
 
+        self.settings = settings
         self.sample_rate = self.porcupine.sample_rate
         self.frame_length = self.porcupine.frame_length
         self.frame_seconds = self.frame_length / self.sample_rate
@@ -64,12 +58,10 @@ class LocalAudioRuntime:
 
     def wait_for_wake_word(self) -> None:
         while True:
-            frame = self.recorder.read()
-            if self.porcupine.process(frame) >= 0:
+            if self.porcupine.process(self.recorder.read()) >= 0:
                 return
 
     def capture_utterance(self, start_timeout_seconds: float) -> CapturedUtterance | None:
-        """Capture one utterance, ending after sustained local VAD silence."""
         pre_roll_frames = max(1, math.ceil(0.25 / self.frame_seconds))
         pre_roll: deque[list[int]] = deque(maxlen=pre_roll_frames)
         frames: list[list[int]] = []
@@ -86,13 +78,11 @@ class LocalAudioRuntime:
         while len(frames) < max_frames:
             frame = self.recorder.read()
             probability = self.cobra.process(frame)
-
             if not heard_speech:
                 pre_roll.append(frame)
                 if probability >= self.settings.vad_threshold:
                     heard_speech = True
                     frames.extend(pre_roll)
-                    silence_frames = 0
                 elif time.monotonic() >= start_deadline:
                     return None
                 continue
@@ -111,7 +101,7 @@ class LocalAudioRuntime:
         samples = [sample for frame in frames for sample in frame]
         wav_bytes = self._pcm_to_wav(samples)
         return CapturedUtterance(
-            wav_bytes=wav_bytes,
+            audio=AudioBuffer(data=wav_bytes, sample_rate=self.sample_rate),
             duration_seconds=len(samples) / self.sample_rate,
         )
 
