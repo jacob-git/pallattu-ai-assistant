@@ -22,8 +22,9 @@ _SENSITIVE_MARKERS = (
 class SQLiteMemoryAdapter:
     """Local persistent conversation history and explicit long-term memories."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, max_conversation_messages: int = 500) -> None:
         self.path = path.expanduser()
+        self.max_conversation_messages = max(20, max_conversation_messages)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -77,6 +78,46 @@ class SQLiteMemoryAdapter:
                 "INSERT INTO conversation_messages(role, content) VALUES (?, ?)",
                 (role, content.strip()),
             )
+        self.prune_conversations()
+
+    def prune_conversations(self, max_messages: int | None = None) -> int:
+        keep = max(20, max_messages or self.max_conversation_messages)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM conversation_messages
+                WHERE id NOT IN (
+                    SELECT id FROM conversation_messages ORDER BY id DESC LIMIT ?
+                )
+                """,
+                (keep,),
+            )
+        return int(cursor.rowcount)
+
+    def clear_conversations(self) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM conversation_messages")
+        return int(cursor.rowcount)
+
+    def clear_memories(self) -> int:
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM long_term_memories")
+        return int(cursor.rowcount)
+
+    def stats(self) -> dict[str, Any]:
+        with self._connect() as connection:
+            conversation_count = int(
+                connection.execute("SELECT COUNT(*) FROM conversation_messages").fetchone()[0]
+            )
+            memory_count = int(
+                connection.execute("SELECT COUNT(*) FROM long_term_memories").fetchone()[0]
+            )
+        return {
+            "conversation_messages": conversation_count,
+            "long_term_memories": memory_count,
+            "max_conversation_messages": self.max_conversation_messages,
+            "database": str(self.path),
+        }
 
     def search(self, query: str, limit: int = 5) -> list[str]:
         query_tokens = _tokens(query)
