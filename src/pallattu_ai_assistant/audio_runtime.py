@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from collections import deque
 import io
 import math
-from pathlib import Path
 import struct
 import time
 import wave
+from collections import deque
+from pathlib import Path
 
 import numpy as np
 import openwakeword
-from openwakeword.model import Model
-from pysilero_vad import SileroVoiceActivityDetector
 import sounddevice as sd
 import webrtcvad
+from openwakeword.model import Model
+from pysilero_vad import SileroVoiceActivityDetector
 
 from pallattu_ai_assistant.config import Settings
 from pallattu_ai_assistant.domain import AudioBuffer, CapturedUtterance
@@ -75,9 +75,6 @@ class OpenWakeWordPerceptionAdapter:
 
         model_path = Path(model_info["model_path"])
         if not model_path.exists():
-            # openWakeWord exposes model paths even before the corresponding files
-            # have been downloaded. Download only the selected model and shared
-            # feature models on first use.
             openwakeword.utils.download_models([model_path.stem])
 
         if not model_path.exists():
@@ -85,8 +82,6 @@ class OpenWakeWordPerceptionAdapter:
                 f"openWakeWord model download completed but the model is still missing: {model_path}"
             )
 
-        # TFLite/LiteRT is openWakeWord's efficient ARM64 path and avoids the
-        # currently reported ONNX score issue on Apple Silicon.
         return Model(wakeword_models=[str(model_path)], inference_framework="tflite")
 
     def _resolve_target_model(self) -> str:
@@ -171,7 +166,6 @@ class OpenWakeWordPerceptionAdapter:
     def _read(self, sample_count: int) -> np.ndarray:
         data, overflowed = self.stream.read(sample_count)
         if overflowed:
-            # Continue rather than failing the long-running assistant on a transient audio overrun.
             pass
         return np.asarray(data, dtype=np.int16).reshape(-1)
 
