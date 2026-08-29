@@ -76,6 +76,74 @@ PALLATTU_WEBRTC_VAD_MODE=2
 
 WebRTC aggressiveness ranges from `0` to `3`; higher values reject more non-speech audio.
 
+## Portable tool layer
+
+Version `0.4.0` adds a typed tool boundary between the AI model and executable capabilities. The model can request only tools that the application explicitly registers; it cannot execute arbitrary shell commands, GPIO operations, or Python code.
+
+Current portable tools:
+
+- `current_time` — local date, time, and timezone from the device
+- `weather` — current conditions for a named location using Open-Meteo
+- `system_status` — safe CPU, memory, disk, platform, and battery information when available
+
+The flow is:
+
+```text
+Speech
+  |
+  v
+STT
+  |
+  v
+LLM
+  |
+  | optional typed function call
+  v
+ToolPort
+  |
+  +-- current_time
+  +-- weather
+  `-- system_status
+  |
+  v
+Tool result
+  |
+  v
+LLM final spoken answer
+  |
+  v
+TTS
+```
+
+This same `ToolPort` is where Raspberry Pi-specific adapters will later register sensors, camera capabilities, GPIO state, and robot actions. Hardware tools remain separate from the portable application core.
+
+Weather requires network access but no additional API key. Time and system status are local.
+
+### Test the tool loop by voice
+
+After updating/installing, start the assistant and try:
+
+```text
+Hey Jarvis
+What time is it?
+```
+
+Then:
+
+```text
+Hey Jarvis
+What's the weather in Sunnyvale, Texas?
+```
+
+And:
+
+```text
+Hey Jarvis
+How is this computer doing?
+```
+
+The assistant should call the appropriate tool and then speak a concise answer rather than claiming it has no access to current information.
+
 ## macOS first run
 
 Requires Python 3.11+.
@@ -167,13 +235,13 @@ Perception adapter
 +-----------+-------------+
             |
         Port interfaces
-   +--------+--------+
+   +--------+--------+--------+
+   |        |        |        |
+   v        v        v        v
+Voice AI   Tools    Audio   Metrics
+adapter    port     output  adapter
    |        |        |
-   v        v        v
-Voice AI   Audio   Metrics
-adapter    output  adapter
-   |        |
-OpenAI   sounddevice
+OpenAI   registry  sounddevice
 ```
 
 The application core imports only domain types and port interfaces. Technology choices are wired at the composition root in `bootstrap.py`.
@@ -184,7 +252,8 @@ Current adapters:
 - Silero VAD as the default local speech detector
 - WebRTC VAD as a switchable lightweight alternative
 - `sounddevice` for portable microphone/audio playback
-- OpenAI for STT, reasoning, and TTS
+- OpenAI for STT, reasoning, function calling, and TTS
+- portable tool registry for time, weather, and system status
 - JSONL for local usage/latency metrics
 
 ## Runtime behavior
@@ -200,7 +269,7 @@ LISTENING
    v
 THINKING
    |
-   | STT -> LLM -> TTS
+   | STT -> LLM -> optional tool -> LLM -> TTS
    v
 SPEAKING
    |
@@ -212,18 +281,19 @@ FOLLOW-UP WINDOW
    +-> LISTENING  +-> SLEEPING
 ```
 
-Idle room audio stays local. Cloud AI is invoked only after wake activation and speech capture.
+Idle room audio stays local. Cloud AI is invoked only after wake activation and speech capture. Weather is fetched only when a weather request causes the model to call that tool.
 
 ## Project boundaries
 
 ```text
 src/pallattu_ai_assistant/
 ├── domain.py           # portable value types
-├── ports.py            # interfaces owned by the application
+├── ports.py            # interfaces owned by the application, including ToolPort
 ├── app.py              # assistant behavior/state machine
-├── bootstrap.py        # chooses concrete adapters
+├── bootstrap.py        # chooses concrete adapters and registered capabilities
 ├── audio_runtime.py    # openWakeWord + selectable VAD perception adapter
-├── openai_pipeline.py  # OpenAI voice adapter
+├── openai_pipeline.py  # OpenAI voice + function-calling adapter
+├── tools.py            # portable time/weather/system-status registry
 ├── adapters.py         # playback + metrics adapters
 ├── doctor.py           # portable environment/audio diagnostics
 ├── config.py           # environment/local configuration
