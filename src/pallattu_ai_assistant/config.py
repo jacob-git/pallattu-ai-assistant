@@ -7,6 +7,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
+DEFAULT_CONFIG_PATH = Path.home() / ".pallattu-ai-assistant" / ".env"
+
+
 @dataclass(frozen=True)
 class Settings:
     log_level: str
@@ -31,8 +34,27 @@ def _optional_path(value: str | None) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def resolve_config_path() -> Path | None:
+    """Resolve config without depending on python-dotenv's caller-file search behavior."""
+    explicit = os.getenv("PALLATTU_CONFIG")
+    if explicit:
+        return Path(explicit).expanduser()
+
+    local = Path.cwd() / ".env"
+    if local.exists():
+        return local
+
+    if DEFAULT_CONFIG_PATH.exists():
+        return DEFAULT_CONFIG_PATH
+
+    return None
+
+
 def load_settings() -> Settings:
-    load_dotenv()
+    config_path = resolve_config_path()
+    if config_path is not None:
+        load_dotenv(dotenv_path=config_path)
+
     return Settings(
         log_level=os.getenv("PALLATTU_LOG_LEVEL", "INFO"),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
