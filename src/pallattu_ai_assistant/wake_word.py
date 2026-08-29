@@ -22,21 +22,21 @@ def install_custom_wake_model(source: Path) -> Path:
     source = source.expanduser()
     if not source.exists() or not source.is_file():
         raise FileNotFoundError(f"Wake-word model not found: {source}")
-    if source.suffix.lower() not in {".tflite", ".onnx"}:
-        raise ValueError("Wake-word model must be a .tflite or .onnx file")
+    if source.suffix.lower() != ".tflite":
+        raise ValueError("The standard Hey Pal wake-word model must be a .tflite file")
 
-    destination = DEFAULT_CUSTOM_WAKE_MODEL.with_suffix(source.suffix.lower())
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
-    return destination
+    DEFAULT_CUSTOM_WAKE_MODEL.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, DEFAULT_CUSTOM_WAKE_MODEL)
+    return DEFAULT_CUSTOM_WAKE_MODEL
 
 
 def wake_status(explicit: Path | None, fallback_model: str) -> dict[str, str | bool]:
     custom = resolve_custom_wake_model(explicit)
+    ready = custom is not None and custom.exists()
     return {
         "target_phrase": DEFAULT_WAKE_PHRASE,
-        "custom_model_ready": custom is not None and custom.exists(),
+        "custom_model_ready": ready,
         "custom_model_path": str(custom or DEFAULT_CUSTOM_WAKE_MODEL),
-        "active_mode": "custom" if custom is not None and custom.exists() else "fallback",
-        "active_wake": DEFAULT_WAKE_PHRASE if custom is not None and custom.exists() else fallback_model,
+        "active_mode": "custom" if ready else "fallback",
+        "active_wake": DEFAULT_WAKE_PHRASE if ready else fallback_model,
     }
