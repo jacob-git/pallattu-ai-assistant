@@ -30,8 +30,8 @@ PALLATTU_VAD_ENGINE=silero
 PALLATTU_VAD_THRESHOLD=0.5
 PALLATTU_WEBRTC_VAD_MODE=2
 
-# Audio playback follows the selected device/system volume.
-PALLATTU_OUTPUT_GAIN=1.0
+# Default digital playback gain.
+PALLATTU_OUTPUT_GAIN=1.5
 
 # Persistent local memory defaults to ~/.pallattu-ai-assistant/memory.sqlite3.
 # PALLATTU_MEMORY_PATH=/your/local/path/memory.sqlite3
