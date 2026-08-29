@@ -2,21 +2,79 @@
 
 Portable, cost-efficient, local-first AI voice assistant runtime.
 
-The application is intentionally **not coupled to Raspberry Pi OS, Linux, systemd, ALSA, or any specific AI provider**. macOS is the first validated desktop target; Raspberry Pi 5 is a deployment target, not part of the application architecture.
+The application is intentionally **not coupled to Raspberry Pi OS, Linux, systemd, ALSA, or a proprietary wake-word service**. macOS is the first validated desktop target; Raspberry Pi 5 is a deployment target, not part of the application architecture.
 
 ## Goal
 
-Download the distribution, install it, configure your local AI keys, and run:
+Download the distribution, install it, configure one AI key locally, and run:
 
 ```bash
 pip install pallattu_ai_assistant-*.whl
 pallattu-ai-assistant init
-# edit .env and add your keys
+# edit .env and add OPENAI_API_KEY
 pallattu-ai-assistant doctor
 pallattu-ai-assistant run
 ```
 
 No source-code changes should be required for a normal installation.
+
+## Local voice stack
+
+The always-listening path is open source and runs locally:
+
+```text
+Microphone
+   |
+   v
+sounddevice
+   |
+   v
+openWakeWord
+   |
+   | activation
+   v
+VAD strategy
+   |-- Silero (default)
+   `-- WebRTC (switchable)
+   |
+   | captured speech only
+   v
+OpenAI STT -> LLM -> TTS
+```
+
+No Picovoice account or access key is required.
+
+### Wake word
+
+The first-run model is `hey jarvis`, one of openWakeWord's pretrained models. Later, point the application at a custom openWakeWord model for **Hey Pallattu**:
+
+```text
+PALLATTU_WAKE_WORD_MODEL=/your/local/path/hey-pallattu.tflite
+```
+
+Tune activation if needed:
+
+```text
+PALLATTU_WAKE_THRESHOLD=0.5
+```
+
+### Switch VAD engines
+
+Silero is the default:
+
+```text
+PALLATTU_VAD_ENGINE=silero
+PALLATTU_VAD_THRESHOLD=0.5
+```
+
+To compare WebRTC VAD on the same machine:
+
+```text
+PALLATTU_VAD_ENGINE=webrtc
+PALLATTU_WEBRTC_VAD_MODE=2
+```
+
+WebRTC aggressiveness ranges from `0` to `3`; higher values reject more non-speech audio.
 
 ## macOS first run
 
@@ -29,26 +87,20 @@ pip install pallattu_ai_assistant-*.whl
 pallattu-ai-assistant init
 ```
 
-Add your local credentials to `.env`:
+Add your OpenAI key to `.env`:
 
 ```text
 OPENAI_API_KEY=...
-PICOVOICE_ACCESS_KEY=...
 ```
 
-Then validate the machine:
+Then:
 
 ```bash
 pallattu-ai-assistant doctor
-```
-
-`doctor` checks the local keys, wake-word configuration, default microphone, and default speaker. If macOS blocks microphone access, allow the terminal application under **System Settings > Privacy & Security > Microphone**.
-
-Start the assistant:
-
-```bash
 pallattu-ai-assistant run
 ```
+
+If macOS blocks microphone access, allow your terminal application under **System Settings > Privacy & Security > Microphone**.
 
 ## Architecture
 
@@ -80,12 +132,12 @@ The application core imports only domain types and port interfaces. Technology c
 
 Current adapters:
 
-- Picovoice Porcupine + Cobra + PvRecorder for local wake word, VAD, and microphone capture
+- openWakeWord for local wake-word detection
+- Silero VAD as the default local speech detector
+- WebRTC VAD as a switchable lightweight alternative
+- `sounddevice` for portable microphone/audio playback
 - OpenAI for STT, reasoning, and TTS
-- `sounddevice` for portable audio playback
 - JSONL for local usage/latency metrics
-
-Future adapters can replace any of these without changing the assistant state machine.
 
 ## Runtime behavior
 
@@ -96,7 +148,7 @@ SLEEPING
    v
 LISTENING
    |
-   | local VAD detects end of speech
+   | selected local VAD detects end of speech
    v
 THINKING
    |
@@ -112,42 +164,7 @@ FOLLOW-UP WINDOW
    +-> LISTENING  +-> SLEEPING
 ```
 
-Idle room audio is processed locally. Cloud AI is invoked only after wake activation and speech capture.
-
-## Install from a distribution
-
-A tagged build produces a Python wheel and source distribution through GitHub Actions.
-
-On the target machine, with Python 3.11+:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # use the equivalent command on your platform
-pip install pallattu_ai_assistant-*.whl
-pallattu-ai-assistant init
-pallattu-ai-assistant doctor
-```
-
-`init` creates a local `.env` file. Add:
-
-```text
-OPENAI_API_KEY=...
-PICOVOICE_ACCESS_KEY=...
-```
-
-Then:
-
-```bash
-pallattu-ai-assistant run
-```
-
-For the first run the built-in Porcupine keyword is used. To use a custom phrase such as **Hey Pallattu**, store the Picovoice `.ppn` file anywhere locally and set:
-
-```text
-PALLATTU_WAKE_WORD_MODEL=/your/local/path/hey-pallattu.ppn
-```
-
-No machine-specific path is embedded in the program.
+Idle room audio stays local. Cloud AI is invoked only after wake activation and speech capture.
 
 ## Project boundaries
 
@@ -157,7 +174,7 @@ src/pallattu_ai_assistant/
 ├── ports.py            # interfaces owned by the application
 ├── app.py              # assistant behavior/state machine
 ├── bootstrap.py        # chooses concrete adapters
-├── audio_runtime.py    # Picovoice perception adapter
+├── audio_runtime.py    # openWakeWord + selectable VAD perception adapter
 ├── openai_pipeline.py  # OpenAI voice adapter
 ├── adapters.py         # playback + metrics adapters
 ├── doctor.py           # portable environment/audio diagnostics
@@ -165,11 +182,11 @@ src/pallattu_ai_assistant/
 └── main.py             # portable CLI
 ```
 
-Operating-system startup mechanisms belong outside the application. A systemd unit, launchd configuration, Windows service wrapper, Docker image, or process supervisor may be supplied as optional deployment examples, but the core never depends on them.
+Operating-system startup mechanisms belong outside the application.
 
 ## CI and distribution validation
 
-CI runs on both Ubuntu and macOS. Each job lints, tests, builds the distribution, installs the wheel into a clean virtual environment, and validates the installed CLI. This catches packaging issues that editable-source tests can miss.
+CI runs on both Ubuntu and macOS. Each job lints, tests, builds the distribution, installs the wheel into a clean virtual environment, and validates the installed CLI.
 
 ## Development
 
@@ -184,7 +201,3 @@ pytest
 ## Security
 
 Never commit `.env`, API keys, custom private configuration, recordings, personal conversations, or household/network information.
-
-## Roadmap
-
-The next architectural layer is a tool/action port so conversational AI can safely request local capabilities such as sensors, home automation, vision, or robot motion without directly controlling hardware.
