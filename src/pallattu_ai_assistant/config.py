@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 
 DEFAULT_CONFIG_PATH = Path.home() / ".pallattu-ai-assistant" / ".env"
+DEFAULT_MEMORY_PATH = Path.home() / ".pallattu-ai-assistant" / "memory.sqlite3"
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class Settings:
     tts_model: str
     tts_voice: str
     system_prompt: str
+    memory_path: Path
     metrics_path: Path
 
 
@@ -87,9 +89,12 @@ def load_settings() -> Settings:
                 "Answer naturally for spoken playback. Prefer short answers unless the user asks for detail. "
                 "Use an available tool whenever a request depends on current time, current weather, or the "
                 "status of the device running the assistant. Never claim live information is unavailable when "
-                "an available tool can answer it."
+                "an available tool can answer it. Use remember_fact when the user explicitly asks you to "
+                "remember a stable fact or preference. Use forget_memory when the user asks you to forget one. "
+                "Never store credentials or secrets in long-term memory."
             ),
         ),
+        memory_path=Path(os.getenv("PALLATTU_MEMORY_PATH", str(DEFAULT_MEMORY_PATH))).expanduser(),
         metrics_path=Path(os.getenv("PALLATTU_METRICS_PATH", "data/usage.jsonl")),
     )
 
