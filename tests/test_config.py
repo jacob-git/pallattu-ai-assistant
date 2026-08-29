@@ -6,12 +6,16 @@ def test_default_settings(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("PALLATTU_WAKE_WORD_MODEL", raising=False)
     monkeypatch.delenv("PALLATTU_WAKE_MODEL", raising=False)
+    monkeypatch.delenv("PALLATTU_WAKE_ACK", raising=False)
+    monkeypatch.delenv("PALLATTU_WAKE_ACK_TEXT", raising=False)
     monkeypatch.delenv("PALLATTU_VAD_ENGINE", raising=False)
 
     settings = load_settings()
 
     assert settings.wake_model == "hey jarvis"
     assert settings.wake_word_model is None
+    assert settings.wake_ack == "beep_and_voice"
+    assert settings.wake_ack_text == "I'm listening."
     assert settings.vad_engine == "silero"
     assert settings.llm_model == "gpt-5.6-luna"
     assert settings.transcription_model == "gpt-4o-mini-transcribe"
