@@ -13,12 +13,17 @@ from pallattu_ai_assistant.doctor import run_doctor
 CONFIG_TEMPLATE = """# Pallattu AI Assistant - local configuration
 # Keep this file private. Never commit it.
 OPENAI_API_KEY=
-PICOVOICE_ACCESS_KEY=
 
-# Built-in Porcupine keyword for first run. Set PALLATTU_WAKE_WORD_MODEL
-# to a local .ppn file when you create a custom 'Hey Pallattu' model.
-PALLATTU_WAKE_KEYWORD=porcupine
+# Local wake-word configuration. No vendor key is required.
+# Built-in model for first run; later point PALLATTU_WAKE_WORD_MODEL to a custom model.
+PALLATTU_WAKE_MODEL=hey jarvis
 PALLATTU_WAKE_WORD_MODEL=
+PALLATTU_WAKE_THRESHOLD=0.5
+
+# Local voice activity detection: silero (default) or webrtc.
+PALLATTU_VAD_ENGINE=silero
+PALLATTU_VAD_THRESHOLD=0.5
+PALLATTU_WEBRTC_VAD_MODE=2
 
 PALLATTU_LLM_MODEL=gpt-5.6-luna
 PALLATTU_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
@@ -34,7 +39,7 @@ def _init_config(path: Path) -> None:
         return
     path.write_text(CONFIG_TEMPLATE, encoding="utf-8")
     print(f"Created {path}")
-    print("Add your OPENAI_API_KEY and PICOVOICE_ACCESS_KEY, then run:")
+    print("Add your OPENAI_API_KEY, then run:")
     print("  pallattu-ai-assistant doctor")
     print("  pallattu-ai-assistant run")
 
