@@ -45,17 +45,14 @@ def load_settings() -> Settings:
         follow_up_seconds=float(os.getenv("PALLATTU_FOLLOW_UP_SECONDS", "10")),
         max_utterance_seconds=float(os.getenv("PALLATTU_MAX_UTTERANCE_SECONDS", "20")),
         llm_model=os.getenv("PALLATTU_LLM_MODEL", "gpt-5.6-luna"),
-        transcription_model=os.getenv(
-            "PALLATTU_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"
-        ),
+        transcription_model=os.getenv("PALLATTU_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"),
         tts_model=os.getenv("PALLATTU_TTS_MODEL", "gpt-4o-mini-tts"),
         tts_voice=os.getenv("PALLATTU_TTS_VOICE", "coral"),
         system_prompt=os.getenv(
             "PALLATTU_SYSTEM_PROMPT",
             (
-                "You are Pallattu AI Assistant, a concise, helpful voice assistant running on a "
-                "Raspberry Pi. Answer naturally for spoken playback. Prefer short answers unless "
-                "the user asks for detail."
+                "You are Pallattu AI Assistant, a concise and helpful voice assistant. "
+                "Answer naturally for spoken playback. Prefer short answers unless the user asks for detail."
             ),
         ),
         metrics_path=Path(os.getenv("PALLATTU_METRICS_PATH", "data/usage.jsonl")),
