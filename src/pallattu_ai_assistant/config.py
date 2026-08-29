@@ -92,7 +92,7 @@ def load_settings() -> Settings:
         end_silence_seconds=float(os.getenv("PALLATTU_END_SILENCE_SECONDS", "0.8")),
         follow_up_seconds=float(os.getenv("PALLATTU_FOLLOW_UP_SECONDS", "10")),
         max_utterance_seconds=float(os.getenv("PALLATTU_MAX_UTTERANCE_SECONDS", "20")),
-        output_gain=float(os.getenv("PALLATTU_OUTPUT_GAIN", "1.0")),
+        output_gain=float(os.getenv("PALLATTU_OUTPUT_GAIN", "1.5")),
         llm_model=os.getenv("PALLATTU_LLM_MODEL", "gpt-5.6-luna"),
         transcription_model=os.getenv("PALLATTU_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"),
         tts_model=os.getenv("PALLATTU_TTS_MODEL", "gpt-4o-mini-tts"),
