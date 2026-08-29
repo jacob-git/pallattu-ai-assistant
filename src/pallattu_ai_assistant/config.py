@@ -24,6 +24,7 @@ class Settings:
     end_silence_seconds: float
     follow_up_seconds: float
     max_utterance_seconds: float
+    output_gain: float
     llm_model: str
     transcription_model: str
     tts_model: str
@@ -70,6 +71,7 @@ def load_settings() -> Settings:
         end_silence_seconds=float(os.getenv("PALLATTU_END_SILENCE_SECONDS", "0.8")),
         follow_up_seconds=float(os.getenv("PALLATTU_FOLLOW_UP_SECONDS", "10")),
         max_utterance_seconds=float(os.getenv("PALLATTU_MAX_UTTERANCE_SECONDS", "20")),
+        output_gain=float(os.getenv("PALLATTU_OUTPUT_GAIN", "1.0")),
         llm_model=os.getenv("PALLATTU_LLM_MODEL", "gpt-5.6-luna"),
         transcription_model=os.getenv("PALLATTU_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"),
         tts_model=os.getenv("PALLATTU_TTS_MODEL", "gpt-4o-mini-tts"),
@@ -99,4 +101,6 @@ def validate_settings(settings: Settings) -> list[str]:
         errors.append("PALLATTU_VAD_THRESHOLD must be between 0 and 1")
     if settings.webrtc_vad_mode not in {0, 1, 2, 3}:
         errors.append("PALLATTU_WEBRTC_VAD_MODE must be 0, 1, 2, or 3")
+    if not 0.0 < settings.output_gain <= 4.0:
+        errors.append("PALLATTU_OUTPUT_GAIN must be greater than 0 and at most 4.0")
     return errors
