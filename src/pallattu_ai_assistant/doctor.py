@@ -18,8 +18,12 @@ class DoctorCheck:
 def run_doctor(settings: Settings) -> list[DoctorCheck]:
     checks: list[DoctorCheck] = [
         DoctorCheck("Platform", True, f"{platform.system()} {platform.machine()}"),
-        DoctorCheck("OpenAI key", bool(settings.openai_api_key), "configured" if settings.openai_api_key else "missing"),
-        DoctorCheck("Picovoice key", bool(settings.picovoice_access_key), "configured" if settings.picovoice_access_key else "missing"),
+        DoctorCheck(
+            "OpenAI key",
+            bool(settings.openai_api_key),
+            "configured" if settings.openai_api_key else "missing",
+        ),
+        DoctorCheck("VAD engine", True, settings.vad_engine),
     ]
 
     if settings.wake_word_model:
@@ -31,17 +35,25 @@ def run_doctor(settings: Settings) -> list[DoctorCheck]:
             )
         )
     else:
-        checks.append(DoctorCheck("Wake word", True, f"built-in: {settings.wake_keyword}"))
+        checks.append(DoctorCheck("Wake word", True, f"openWakeWord: {settings.wake_model}"))
 
     try:
         devices = sd.query_devices()
         default_input, default_output = sd.default.device
-
-        input_detail = _device_name(devices, default_input)
-        output_detail = _device_name(devices, default_output)
-
-        checks.append(DoctorCheck("Microphone", default_input is not None and default_input >= 0, input_detail))
-        checks.append(DoctorCheck("Speaker", default_output is not None and default_output >= 0, output_detail))
+        checks.append(
+            DoctorCheck(
+                "Microphone",
+                default_input is not None and default_input >= 0,
+                _device_name(devices, default_input),
+            )
+        )
+        checks.append(
+            DoctorCheck(
+                "Speaker",
+                default_output is not None and default_output >= 0,
+                _device_name(devices, default_output),
+            )
+        )
     except Exception as exc:
         checks.append(DoctorCheck("Audio devices", False, str(exc)))
 
