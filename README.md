@@ -102,6 +102,54 @@ pallattu-ai-assistant run
 
 If macOS blocks microphone access, allow your terminal application under **System Settings > Privacy & Security > Microphone**.
 
+## Troubleshooting
+
+### Wake word is difficult to trigger
+
+The default pretrained wake phrase is **Hey Jarvis**. Wake-word accuracy can vary with accent, pacing, room noise, microphone distance, and microphone quality.
+
+If activation is too difficult, lower the wake threshold in `.env`:
+
+```text
+PALLATTU_WAKE_THRESHOLD=0.35
+```
+
+Restart the assistant after changing the value:
+
+```bash
+pallattu-ai-assistant run
+```
+
+A lower value makes activation easier but can increase false wake-ups. If `0.35` is too sensitive, try `0.40` or `0.45`.
+
+For long-term use, a custom openWakeWord model trained for **Hey Pallattu** is preferable to relying on the generic Hey Jarvis model.
+
+### Assistant speech is too quiet
+
+Playback uses the selected output device through `sounddevice`, so the operating-system/device volume remains the primary volume control.
+
+The default application gain is neutral:
+
+```text
+PALLATTU_OUTPUT_GAIN=1.0
+```
+
+If the system volume is already high but TTS playback is still too quiet, increase only the assistant audio in `.env`:
+
+```text
+PALLATTU_OUTPUT_GAIN=1.5
+```
+
+If needed, try:
+
+```text
+PALLATTU_OUTPUT_GAIN=2.0
+```
+
+The playback adapter applies clipping protection when gain is above `1.0`. Prefer adjusting system/device volume first and use application gain only as compensation for quiet TTS output.
+
+Configuration changes in `.env` do not require reinstalling the package; restart `pallattu-ai-assistant run` to apply them.
+
 ## Architecture
 
 ```text
