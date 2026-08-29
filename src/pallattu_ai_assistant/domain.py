@@ -13,6 +13,15 @@ class AudioBuffer:
 
 
 @dataclass(frozen=True)
+class ImageFrame:
+    data: bytes
+    media_type: str = "image/jpeg"
+    width: int | None = None
+    height: int | None = None
+    source: str = "camera"
+
+
+@dataclass(frozen=True)
 class CapturedUtterance:
     audio: AudioBuffer
     duration_seconds: float
