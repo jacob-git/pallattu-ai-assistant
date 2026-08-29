@@ -10,6 +10,7 @@ from pallattu_ai_assistant.bootstrap import build_app
 from pallattu_ai_assistant.config import load_settings, validate_settings
 from pallattu_ai_assistant.doctor import run_doctor
 from pallattu_ai_assistant.memory import SQLiteMemoryAdapter
+from pallattu_ai_assistant.pi_check import run_pi_check
 
 CONFIG_TEMPLATE = """# Pallattu AI Assistant - local configuration
 # Keep this file private. Never commit it.
@@ -63,19 +64,33 @@ def _init_config(path: Path) -> None:
     print("  pallattu-ai-assistant run")
 
 
-def _doctor() -> None:
-    settings = load_settings()
-    checks = run_doctor(settings)
-    print(f"Pallattu AI Assistant v{__version__}")
+def _print_checks(title: str, checks) -> None:
+    print(title)
     print()
     for check in checks:
         mark = "✓" if check.ok else "✗"
         print(f"{mark} {check.name:<18} {check.detail}")
+
+
+def _doctor() -> None:
+    settings = load_settings()
+    checks = run_doctor(settings)
+    _print_checks(f"Pallattu AI Assistant v{__version__}", checks)
     if sys.platform == "darwin":
         print()
         print("macOS: if microphone access is blocked, allow your terminal app in")
         print("System Settings > Privacy & Security > Microphone.")
     if not all(check.ok for check in checks):
+        raise SystemExit(2)
+
+
+def _pi_check() -> None:
+    settings = load_settings()
+    checks = run_pi_check(settings)
+    _print_checks(f"Pallattu AI Assistant v{__version__} - Raspberry Pi validation", checks)
+    required = {"Platform", "OpenAI key", "Wake stack", "Microphone", "Speaker", "Memory"}
+    failed_required = [check for check in checks if check.name in required and not check.ok]
+    if failed_required:
         raise SystemExit(2)
 
 
@@ -132,6 +147,7 @@ def main() -> None:
     init_parser = subcommands.add_parser("init", help="create a local .env configuration")
     init_parser.add_argument("--path", type=Path, default=Path(".env"))
     subcommands.add_parser("doctor", help="check keys and local audio readiness")
+    subcommands.add_parser("pi-check", help="validate Raspberry Pi audio, camera, memory, and hardware readiness")
     subcommands.add_parser("run", help="start the assistant")
 
     memory_parser = subcommands.add_parser("memory", help="inspect and manage local memory")
@@ -152,6 +168,8 @@ def main() -> None:
         _init_config(args.path)
     elif args.command == "doctor":
         _doctor()
+    elif args.command == "pi-check":
+        _pi_check()
     elif args.command == "run":
         _run()
     elif args.command == "memory":
