@@ -14,11 +14,13 @@ DEFAULT_CONFIG_PATH = Path.home() / ".pallattu-ai-assistant" / ".env"
 class Settings:
     log_level: str
     openai_api_key: str
-    picovoice_access_key: str
     audio_input_device_index: int
-    wake_keyword: str
+    wake_model: str
     wake_word_model: Path | None
+    wake_threshold: float
+    vad_engine: str
     vad_threshold: float
+    webrtc_vad_mode: int
     end_silence_seconds: float
     follow_up_seconds: float
     max_utterance_seconds: float
@@ -58,11 +60,13 @@ def load_settings() -> Settings:
     return Settings(
         log_level=os.getenv("PALLATTU_LOG_LEVEL", "INFO"),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-        picovoice_access_key=os.getenv("PICOVOICE_ACCESS_KEY", ""),
         audio_input_device_index=int(os.getenv("PALLATTU_AUDIO_INPUT_DEVICE_INDEX", "-1")),
-        wake_keyword=os.getenv("PALLATTU_WAKE_KEYWORD", "porcupine"),
+        wake_model=os.getenv("PALLATTU_WAKE_MODEL", "hey jarvis"),
         wake_word_model=_optional_path(os.getenv("PALLATTU_WAKE_WORD_MODEL")),
-        vad_threshold=float(os.getenv("PALLATTU_VAD_THRESHOLD", "0.55")),
+        wake_threshold=float(os.getenv("PALLATTU_WAKE_THRESHOLD", "0.5")),
+        vad_engine=os.getenv("PALLATTU_VAD_ENGINE", "silero").lower(),
+        vad_threshold=float(os.getenv("PALLATTU_VAD_THRESHOLD", "0.5")),
+        webrtc_vad_mode=int(os.getenv("PALLATTU_WEBRTC_VAD_MODE", "2")),
         end_silence_seconds=float(os.getenv("PALLATTU_END_SILENCE_SECONDS", "0.8")),
         follow_up_seconds=float(os.getenv("PALLATTU_FOLLOW_UP_SECONDS", "10")),
         max_utterance_seconds=float(os.getenv("PALLATTU_MAX_UTTERANCE_SECONDS", "20")),
@@ -85,10 +89,14 @@ def validate_settings(settings: Settings) -> list[str]:
     errors: list[str] = []
     if not settings.openai_api_key:
         errors.append("OPENAI_API_KEY is required")
-    if not settings.picovoice_access_key:
-        errors.append("PICOVOICE_ACCESS_KEY is required")
     if settings.wake_word_model and not settings.wake_word_model.exists():
         errors.append(f"Wake-word model not found: {settings.wake_word_model}")
+    if not 0.0 <= settings.wake_threshold <= 1.0:
+        errors.append("PALLATTU_WAKE_THRESHOLD must be between 0 and 1")
+    if settings.vad_engine not in {"silero", "webrtc"}:
+        errors.append("PALLATTU_VAD_ENGINE must be 'silero' or 'webrtc'")
     if not 0.0 <= settings.vad_threshold <= 1.0:
         errors.append("PALLATTU_VAD_THRESHOLD must be between 0 and 1")
+    if settings.webrtc_vad_mode not in {0, 1, 2, 3}:
+        errors.append("PALLATTU_WEBRTC_VAD_MODE must be 0, 1, 2, or 3")
     return errors
