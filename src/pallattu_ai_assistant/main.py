@@ -33,6 +33,9 @@ PALLATTU_WEBRTC_VAD_MODE=2
 # Leave this at 1.0 normally; increase only if TTS is still too quiet.
 PALLATTU_OUTPUT_GAIN=1.0
 
+# Persistent local memory defaults to ~/.pallattu-ai-assistant/memory.sqlite3.
+# PALLATTU_MEMORY_PATH=/your/local/path/memory.sqlite3
+
 PALLATTU_LLM_MODEL=gpt-5.6-luna
 PALLATTU_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 PALLATTU_TTS_MODEL=gpt-4o-mini-tts
