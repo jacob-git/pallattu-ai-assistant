@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from pallattu_ai_assistant.domain import AssistantReply, AudioBuffer, CapturedUtterance
 
@@ -14,6 +14,13 @@ class PerceptionPort(Protocol):
 
 class VoiceAIPort(Protocol):
     def handle(self, audio: AudioBuffer) -> AssistantReply: ...
+
+
+class ToolPort(Protocol):
+    """Application-facing capability boundary for safe local/external tools."""
+
+    def definitions(self) -> list[dict[str, Any]]: ...
+    def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class AudioOutputPort(Protocol):
